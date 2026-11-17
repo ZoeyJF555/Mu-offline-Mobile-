@@ -40,6 +40,7 @@ fun AuthScreen(
     errorText: String?,
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String) -> Unit,
+    onQuickPlay: () -> Unit,
     onClearError: () -> Unit
 ) {
     var isRegisterMode by remember { mutableStateOf(false) }
@@ -126,7 +127,25 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Button(
+                onClick = onQuickPlay,
+                enabled = !busy,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MuEmerald,
+                    contentColor = Color(0xFF022016)
+                ),
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .testTag("quick_play_button")
+            ) {
+                Text("Entrar Directo (Modo Offline Rápido)", style = MaterialTheme.typography.titleMedium)
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Surface(
                 color = MuAbyssSlate,

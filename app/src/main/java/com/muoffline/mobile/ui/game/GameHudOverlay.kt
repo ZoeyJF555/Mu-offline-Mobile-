@@ -6,9 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -129,138 +131,185 @@ fun GameHudOverlay(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Surface(
-                    color = MuObsidian.copy(alpha = 0.86f),
+                    color = MuObsidian.copy(alpha = 0.9f),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MuGold.copy(alpha = 0.45f)),
+                    border = BorderStroke(1.dp, MuGold.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Surface(
-                                color = MuStoneCard,
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, Color(MuCatalog.CLASS_CATALOG.getValue(hero.classId).accentColor).copy(alpha = 0.6f)),
-                                modifier = Modifier
-                                    .clickable(onClick = onOpenCharacter)
-                                    .testTag("hud_character_button")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Text(
-                                        text = "${hero.name} Nv.${hero.level}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MuTextPrimary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (hero.statPoints > 0) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(MuGold)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Box {
                                 Surface(
                                     color = MuStoneCard,
                                     shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, Color(currentMapMeta.accentColor).copy(alpha = 0.55f)),
+                                    border = BorderStroke(1.dp, Color(MuCatalog.CLASS_CATALOG.getValue(hero.classId).accentColor).copy(alpha = 0.65f)),
                                     modifier = Modifier
-                                        .clickable { mapMenuExpanded = true }
-                                        .testTag("hud_map_warp")
+                                        .clickable(onClick = onOpenCharacter)
+                                        .testTag("hud_character_button")
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                                     ) {
                                         Text(
-                                            text = currentMapMeta.name,
+                                            text = "${hero.name} Nv.${hero.level}",
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = Color(currentMapMeta.accentColor),
-                                            maxLines = 1
+                                            color = MuTextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                        Icon(
-                                            Icons.Rounded.ArrowDropDown,
-                                            contentDescription = "Cambiar mapa",
-                                            tint = MuTextSecondary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                        if (hero.statPoints > 0) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MuGold)
+                                            )
+                                        }
                                     }
                                 }
-                                DropdownMenu(
-                                    expanded = mapMenuExpanded,
-                                    onDismissRequest = { mapMenuExpanded = false }
-                                ) {
-                                    MapId.entries.forEach { mid ->
-                                        val m = mapCatalog[mid] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(mid)
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text("${m.name} (Nv.${m.minLevel}+ · Warp ${m.warpLevel})")
-                                            },
-                                            onClick = {
-                                                mapMenuExpanded = false
-                                                onChangeMap(mid)
-                                            }
-                                        )
+
+                                Box {
+                                    Surface(
+                                        color = MuStoneCard,
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, Color(currentMapMeta.accentColor).copy(alpha = 0.6f)),
+                                        modifier = Modifier
+                                            .clickable { mapMenuExpanded = true }
+                                            .testTag("hud_map_warp")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = currentMapMeta.name,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = Color(currentMapMeta.accentColor),
+                                                maxLines = 1
+                                            )
+                                            Icon(
+                                                Icons.Rounded.ArrowDropDown,
+                                                contentDescription = "Cambiar mapa",
+                                                tint = MuTextSecondary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                    DropdownMenu(
+                                        expanded = mapMenuExpanded,
+                                        onDismissRequest = { mapMenuExpanded = false }
+                                    ) {
+                                        MapId.entries.forEach { mid ->
+                                            val m = mapCatalog[mid] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(mid)
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text("${m.name} (Nv.${m.minLevel}+ · Warp ${m.warpLevel})")
+                                                },
+                                                onClick = {
+                                                    mapMenuExpanded = false
+                                                    onChangeMap(mid)
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
+
+                            Text(
+                                text = "${hero.zen} Zen",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MuAmberBright,
+                                modifier = Modifier.padding(start = 6.dp)
+                            )
                         }
 
+                        // Compact always-visible HP / MP / EXP strip
+                        val hpRatioTop = (hero.hp.toFloat() / hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        val mpRatioTop = (hero.mp.toFloat() / hero.maxMp.coerceAtLeast(1)).coerceIn(0f, 1f)
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(1.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            HudIconAction(Icons.Rounded.Backpack, "Mochila y Chaos", MuAmberBright, "hud_inventory_button", onOpenInventory)
-                            HudIconAction(Icons.Rounded.Extension, "Mods ($activeModsCount)", MuGold, "hud_mods_button", onOpenMods)
-                            HudIconAction(
+                            LinearProgressIndicator(
+                                progress = { hpRatioTop },
+                                color = MuCrimson,
+                                trackColor = MuStoneCard,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                            )
+                            Text("HP ${hero.hp}/${hero.maxHp}", style = MaterialTheme.typography.labelSmall, color = MuTextPrimary, fontSize = 10.sp)
+                            LinearProgressIndicator(
+                                progress = { mpRatioTop },
+                                color = MuSky,
+                                trackColor = MuStoneCard,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                            )
+                            Text("MP ${hero.mp}/${hero.maxMp}", style = MaterialTheme.typography.labelSmall, color = MuSky, fontSize = 10.sp)
+                        }
+
+                        // Scrollable labeled action pills (never crushed on narrow screens)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            HudChipAction(Icons.Rounded.Person, "PJ", Color(MuCatalog.CLASS_CATALOG.getValue(hero.classId).accentColor), "hud_pj_chip", onOpenCharacter)
+                            HudChipAction(Icons.Rounded.Backpack, "Mochila", MuAmberBright, "hud_inventory_button", onOpenInventory)
+                            HudChipAction(Icons.Rounded.Extension, "Mods($activeModsCount)", MuGold, "hud_mods_button", onOpenMods)
+                            HudChipAction(
                                 Icons.Rounded.Wifi,
-                                "LAN / BT",
+                                lanConnectedRoom ?: "LAN/BT",
                                 if (lanConnectedRoom != null) MuEmerald else MuSky,
                                 "hud_lan_button",
                                 onOpenLan
                             )
                             if (lanConnectedRoom != null) {
-                                HudIconAction(Icons.AutoMirrored.Rounded.Chat, "Chat ($lanPlayersCount)", MuSky, "hud_chat_toggle") {
+                                HudChipAction(Icons.AutoMirrored.Rounded.Chat, "Chat($lanPlayersCount)", MuSky, "hud_chat_toggle") {
                                     chatOpen = !chatOpen
                                 }
                             }
-                            HudIconAction(Icons.Rounded.Tune, "Configuración", MuTextPrimary, "hud_settings_button", onOpenSettings)
-                            HudIconAction(Icons.Rounded.AdminPanelSettings, "Admin JSON", MuPurple, "hud_admin_button", onOpenAdmin)
-                            HudIconAction(
+                            HudChipAction(Icons.Rounded.Tune, "Ajustes", MuTextPrimary, "hud_settings_button", onOpenSettings)
+                            HudChipAction(Icons.Rounded.AdminPanelSettings, "Admin", MuPurple, "hud_admin_button", onOpenAdmin)
+                            HudChipAction(
                                 Icons.Rounded.ScreenRotation,
-                                stringResource(id = R.string.cd_landscape),
+                                if (isLandscapeLocked) "Vertical" else "Horiz.",
                                 if (isLandscapeLocked) MuAmberBright else MuTextSecondary,
                                 "hud_landscape_button",
                                 onToggleLandscape
                             )
-                            HudIconAction(
+                            HudChipAction(
                                 if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
-                                stringResource(id = R.string.cd_mute),
+                                if (muted) "Silencio" else "Audio",
                                 if (muted) MuCrimson else MuTextPrimary,
                                 "hud_mute_button",
                                 onToggleMute
                             )
-                            HudIconAction(
+                            HudChipAction(
                                 Icons.AutoMirrored.Rounded.ExitToApp,
-                                stringResource(id = R.string.cd_exit_title),
+                                "Menú",
                                 MuCrimson,
                                 "hud_exit_button",
                                 onExitToTitle
@@ -619,20 +668,30 @@ private fun MinimapWidget(
 }
 
 @Composable
-private fun HudIconAction(
+private fun HudChipAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
+    label: String,
     tint: Color,
     tag: String,
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
+    Surface(
+        color = MuStoneCard,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.4f)),
         modifier = Modifier
-            .size(36.dp)
+            .heightIn(min = 34.dp)
+            .clickable(onClick = onClick)
             .testTag(tag)
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(18.dp))
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(15.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MuTextPrimary, maxLines = 1)
+        }
     }
 }
 

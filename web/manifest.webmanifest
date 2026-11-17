@@ -1,0 +1,9 @@
+{
+  "name": "Mu Offline Mobile - Season 6 Ep 3 (Web)",
+  "short_name": "Mu Offline",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090b11",
+  "theme_color": "#d4af37",
+  "description": "RPG estilo MU Online Season 6 Episodio 3 con persistencia JSON plana sin SQL, 5 clases, 15 mapas, NPCs, Mods y Panel Admin."
+}

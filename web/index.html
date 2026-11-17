@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mu Offline Mobile — Season 6 Ep 3 (Web)</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 1. PORTAL / TITLE SCREEN -->
+  <div id="title-screen" class="screen">
+    <div class="panel-wrap">
+      <div class="card gold-border row between">
+        <div>
+          <h1>Mu Offline Mobile · Season 6 Ep 3 (Web)</h1>
+          <div class="muted">Persistencia 100% JSON Plano (sin SQL) · 5 Clases · 15 Mapas · NPCs · Chaos Goblin · Mods · Admin</div>
+        </div>
+        <div class="row">
+          <span id="account-badge" class="badge">Modo Offline</span>
+          <button id="btn-title-mods" class="gold">Mods</button>
+          <button id="btn-title-admin" class="purple">Admin JSON</button>
+          <button id="btn-title-settings">Ajustes</button>
+        </div>
+      </div>
+
+      <!-- Offline Account Switcher -->
+      <div class="card row between">
+        <div class="row" style="flex:1; min-width:220px;">
+          <label class="muted" style="white-space:nowrap;">Cuenta local:</label>
+          <input id="input-account" value="lorencia" style="max-width:200px;" />
+          <button id="btn-switch-account" class="sky">Cargar Cuenta</button>
+        </div>
+        <div class="muted">Controles Web: <b>WASD / Flechas</b> mover · <b>Clic</b> mover/atacar · <b>Espacio</b> Atacar · <b>1/2/3</b> Skills · <b>Q/E</b> HP/MP · <b>F</b> Hablar NPC</div>
+      </div>
+
+      <!-- 5 Character Slots -->
+      <div class="card">
+        <div class="row between" style="margin-bottom:10px;">
+          <h2>Selección de Personaje (5 Slots Clásicos)</h2>
+          <span id="slots-count" class="muted">0/5 ocupados</span>
+        </div>
+        <div id="hero-slots" class="grid-5"></div>
+      </div>
+
+      <!-- Create New Hero -->
+      <div class="card">
+        <h2 style="margin-bottom:10px;">Crear Nuevo Personaje</h2>
+        <div id="class-picker" class="grid-5" style="margin-bottom:12px;"></div>
+        <div class="row">
+          <input id="input-hero-name" placeholder="Nombre del Héroe (ej. Guerrero)" maxlength="16" style="max-width:260px;" />
+          <button id="btn-create-hero" class="emerald">Crear y Entrar a Lorencia</button>
+        </div>
+        <div id="create-error" class="muted" style="color:#ef4444; margin-top:6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. IN-GAME WORLD VIEW -->
+  <div id="game-screen" class="hidden">
+    <canvas id="world-canvas"></canvas>
+    <div id="brightness-veil" style="position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;"></div>
+
+    <div class="hud-top">
+      <div class="hud-bar">
+        <button id="hud-pj" class="sm gold">PJ (Nv.1)</button>
+        <select id="hud-map-select" style="width:auto; padding:5px 8px; font-size:12px;"></select>
+        <button id="hud-bag" class="sm">Mochila / Chaos</button>
+        <button id="hud-vault" class="sm">Baúl</button>
+        <button id="hud-mods" class="sm gold">Mods</button>
+        <button id="hud-admin" class="sm purple">Admin</button>
+        <button id="hud-settings" class="sm">Ajustes</button>
+        <button id="hud-auto" class="sm emerald">MU Helper: OFF</button>
+        <button id="hud-exit" class="sm crimson">Menú</button>
+      </div>
+
+      <div class="minimap-box">
+        <canvas id="minimap-canvas" width="108" height="108"></canvas>
+        <div id="hud-coords" class="coords-label">X:480 Y:480</div>
+      </div>
+    </div>
+
+    <button id="btn-talk-npc" class="npc-prompt gold hidden">Hablar con NPC [F]</button>
+
+    <div class="hud-bottom">
+      <div class="col" style="pointer-events:auto;">
+        <div class="row" style="gap:4px;">
+          <button class="sm" id="pad-up">▲</button>
+        </div>
+        <div class="row" style="gap:4px;">
+          <button class="sm" id="pad-left">◀</button>
+          <button class="sm" id="pad-down">▼</button>
+          <button class="sm" id="pad-right">▶</button>
+        </div>
+      </div>
+
+      <div class="hud-globes">
+        <div class="globe" id="globe-hp"><div class="globe-fill" style="background:#ef4444;height:100%;"></div><span id="lbl-hp">220</span></div>
+        <div class="col" style="flex:1; gap:4px;">
+          <div class="row between" style="font-size:12px;">
+            <span id="lbl-hero-summary">Nv.1 · RR 0</span>
+            <span id="lbl-zen" style="color:var(--amber);font-weight:700;">5,000 Zen</span>
+          </div>
+          <div class="exp-track"><div id="exp-bar" class="exp-fill" style="width:0%;"></div></div>
+          <div id="lbl-map-subtitle" class="muted" style="font-size:11px;">Lorencia</div>
+        </div>
+        <div class="globe mp" id="globe-mp"><div class="globe-fill" style="background:#38bdf8;height:100%;"></div><span id="lbl-mp">90</span></div>
+      </div>
+
+      <div class="controls-right">
+        <div class="row">
+          <button id="btn-pot-hp" class="sm crimson">HP [Q]</button>
+          <button id="btn-pot-mp" class="sm sky">MP [E]</button>
+        </div>
+        <div class="row" id="skills-bar">
+          <button id="btn-skill-0" class="skill-btn">Skill 1</button>
+          <button id="btn-skill-1" class="skill-btn">Skill 2</button>
+          <button id="btn-skill-2" class="skill-btn">Skill 3</button>
+          <button id="btn-attack" class="atk-btn">ATQ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. REUSABLE MODAL DIALOG -->
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="modal-title">Panel</h3>
+        <button id="modal-close" class="sm crimson">Cerrar</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

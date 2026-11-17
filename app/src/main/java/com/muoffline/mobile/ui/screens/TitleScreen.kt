@@ -124,66 +124,80 @@ fun TitleScreen(
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onOpenMods,
-                            border = BorderStroke(1.dp, MuGold.copy(alpha = 0.5f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp)
-                                .testTag("title_mods_button")
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Rounded.Extension, contentDescription = null, modifier = Modifier.size(16.dp), tint = MuGold)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Mods ($activeModsCount)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            OutlinedButton(
+                                onClick = onOpenMods,
+                                border = BorderStroke(1.dp, MuGold.copy(alpha = 0.55f)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("title_mods_button")
+                            ) {
+                                Icon(Icons.Rounded.Extension, contentDescription = null, modifier = Modifier.size(18.dp), tint = MuGold)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Mods ($activeModsCount)", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+
+                            OutlinedButton(
+                                onClick = onOpenLan,
+                                border = BorderStroke(1.dp, (if (lanConnectedRoom != null) MuEmerald else MuSky).copy(alpha = 0.6f)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("title_lan_button")
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Wifi,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (lanConnectedRoom != null) MuEmerald else MuSky
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = lanConnectedRoom ?: "LAN / BT",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
 
-                        OutlinedButton(
-                            onClick = onOpenLan,
-                            border = BorderStroke(1.dp, (if (lanConnectedRoom != null) MuEmerald else MuSky).copy(alpha = 0.55f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp)
-                                .testTag("title_lan_button")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                Icons.Rounded.Wifi,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (lanConnectedRoom != null) MuEmerald else MuSky
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = lanConnectedRoom ?: "LAN / BT",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                            OutlinedButton(
+                                onClick = onOpenAdmin,
+                                border = BorderStroke(1.dp, MuPurple.copy(alpha = 0.6f)),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("title_admin_button")
+                            ) {
+                                Icon(Icons.Rounded.AdminPanelSettings, contentDescription = null, modifier = Modifier.size(18.dp), tint = MuPurple)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Admin JSON", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
 
-                        OutlinedButton(
-                            onClick = onOpenAdmin,
-                            border = BorderStroke(1.dp, MuPurple.copy(alpha = 0.6f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp)
-                                .testTag("title_admin_button")
-                        ) {
-                            Icon(Icons.Rounded.AdminPanelSettings, contentDescription = null, modifier = Modifier.size(16.dp), tint = MuPurple)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Admin", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-
-                        OutlinedButton(
-                            onClick = onOpenCredits,
-                            border = BorderStroke(1.dp, MuBorderSlate),
-                            modifier = Modifier
-                                .heightIn(min = 48.dp)
-                                .testTag("title_credits_button")
-                        ) {
-                            Icon(Icons.Rounded.Info, contentDescription = "Créditos", tint = MuTextSecondary)
+                            OutlinedButton(
+                                onClick = onOpenCredits,
+                                border = BorderStroke(1.dp, MuBorderSlate),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("title_credits_button")
+                            ) {
+                                Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(18.dp), tint = MuTextSecondary)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Créditos", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }

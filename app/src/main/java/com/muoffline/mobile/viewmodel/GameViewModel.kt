@@ -191,6 +191,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _vaultItems.value = emptyList()
     }
 
+    fun quickGuestLogin() {
+        viewModelScope.launch {
+            _authBusy.value = true
+            _authError.value = null
+            val loginRes = repo.loginAccount("lorencia", "1234")
+            val finalRes = if (loginRes.ok) loginRes else repo.registerAccount("lorencia", "1234")
+            _authBusy.value = false
+            if (finalRes.ok && finalRes.accountId != null) {
+                val acc = finalRes.accountId
+                _accountId.value = acc
+                var list = repo.loadHeroes(acc)
+                if (list.isEmpty()) {
+                    val starter = MuCatalog.createStarterHero(acc, "Guerrero", ClassId.DK)
+                    repo.saveHero(starter)
+                    list = listOf(starter)
+                }
+                _heroes.value = list
+                _vaultItems.value = repo.loadVault(acc)
+            } else {
+                _authError.value = finalRes.error ?: "No se pudo iniciar acceso rápido."
+            }
+        }
+    }
+
     fun maxAccountHeroLevel(): Int = _heroes.value.maxOfOrNull { it.level } ?: 1
 
     fun canCreateClass(classId: ClassId): Boolean {

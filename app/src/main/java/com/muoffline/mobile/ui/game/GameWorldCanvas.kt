@@ -172,6 +172,20 @@ fun GameWorldCanvas(
             style = Stroke(width = 3f)
         )
 
+        // Safe Citadel paths & Lorencia stone walls
+        if (hero.mapId == MapId.LORENCIA) {
+            // Stone roads leading out of Lorencia
+            drawRect(color = Color(0xFF3E352B), topLeft = Offset(safeSx - 22f, safeSy - 260f), size = Size(44f, 520f))
+            drawRect(color = Color(0xFF3E352B), topLeft = Offset(safeSx - 260f, safeSy - 22f), size = Size(520f, 44f))
+            // Citadel stone ring markers
+            drawCircle(
+                color = Color(0xFF64748B).copy(alpha = 0.55f),
+                radius = MuWorldConstants.SAFE_RADIUS + 8f,
+                center = Offset(safeSx, safeSy),
+                style = Stroke(width = 8f)
+            )
+        }
+
         if (hero.mapId == MapId.LORENCIA || hero.mapId == MapId.NORIA || hero.mapId == MapId.DEVIAS) {
             drawCircle(color = Color(0xFF475569), radius = 32f, center = Offset(safeSx, safeSy))
             val ripple = if (animationsEnabled) 14f + sin(now / 320.0).toFloat() * 4f else 15f
@@ -215,11 +229,11 @@ fun GameWorldCanvas(
             }
         }
 
-        // Dynamic NPCs for current map
+        // Dynamic NPCs for current map with stalls & recognizable RPG icons
         for (npc in npcsOnMap) {
             val nx = npc.wx - camX
             val ny = npc.wy - camY
-            if (nx < -80f || nx > size.width + 80f || ny < -80f || ny > size.height + 80f) continue
+            if (nx < -90f || nx > size.width + 90f || ny < -90f || ny > size.height + 90f) continue
             val npcColor = when (npc.role) {
                 "chaos" -> Color(0xFFFBBF24)
                 "archer" -> Color(0xFF38BDF8)
@@ -227,14 +241,47 @@ fun GameWorldCanvas(
                 "quest" -> Color(0xFFA855F7)
                 else -> Color(0xFF10B981)
             }
-            drawCircle(color = npcColor.copy(alpha = 0.24f), radius = 24f, center = Offset(nx, ny))
-            drawCircle(color = npcColor, radius = 14f, center = Offset(nx, ny))
-            drawCircle(color = Color(0xFFFDE68A), radius = 7f, center = Offset(nx, ny - 13f))
+            // Pedestal / market stall awning
+            drawRoundRect(
+                color = Color(0xFF1E293B).copy(alpha = 0.85f),
+                topLeft = Offset(nx - 22f, ny - 24f),
+                size = Size(44f, 44f),
+                cornerRadius = CornerRadius(10f, 10f)
+            )
+            drawRoundRect(
+                color = npcColor.copy(alpha = 0.7f),
+                topLeft = Offset(nx - 22f, ny - 24f),
+                size = Size(44f, 10f),
+                cornerRadius = CornerRadius(6f, 6f)
+            )
+            // Ground aura
+            drawCircle(color = npcColor.copy(alpha = 0.25f), radius = 26f, center = Offset(nx, ny))
+            // Body cloak + shoulders
+            drawRoundRect(
+                color = npcColor,
+                topLeft = Offset(nx - 11f, ny - 4f),
+                size = Size(22f, 20f),
+                cornerRadius = CornerRadius(6f, 6f)
+            )
+            // Head
+            drawCircle(color = Color(0xFFFDE68A), radius = 7.5f, center = Offset(nx, ny - 11f))
+            // Role emblem
+            when (npc.role) {
+                "chaos" -> {
+                    drawCircle(color = Color(0xFFF59E0B), radius = 5f, center = Offset(nx + 14f, ny + 4f))
+                }
+                "vault" -> {
+                    drawRect(color = Color(0xFFFBBF24), topLeft = Offset(nx + 10f, ny), size = Size(10f, 9f))
+                }
+                "quest" -> {
+                    drawCircle(color = Color(0xFFFDE047), radius = 5f, center = Offset(nx, ny - 22f))
+                }
+            }
             drawIntoCanvas { canvas ->
                 labelPaint.color = Color(0xFFFDE68A).toArgb()
-                canvas.nativeCanvas.drawText(npc.name, nx, ny - 28f, labelPaint)
+                canvas.nativeCanvas.drawText(npc.name, nx, ny - 32f, labelPaint)
                 subLabelPaint.color = Color(0xFFCBD5E1).toArgb()
-                canvas.nativeCanvas.drawText(npc.subtitle, nx, ny + 32f, subLabelPaint)
+                canvas.nativeCanvas.drawText(npc.subtitle, nx, ny + 34f, subLabelPaint)
             }
         }
 
@@ -267,7 +314,7 @@ fun GameWorldCanvas(
             }
         }
 
-        // 4. Monsters
+        // 4. Monsters with family silhouettes
         for (m in monsters) {
             if (m.hp <= 0) continue
             val mx = m.x - camX
@@ -278,17 +325,43 @@ fun GameWorldCanvas(
 
             if (m.isBoss) {
                 drawCircle(
-                    color = Color(0xFFFBBF24).copy(alpha = 0.28f),
-                    radius = m.radius + 12f,
+                    color = Color(0xFFFBBF24).copy(alpha = 0.32f),
+                    radius = m.radius + 14f,
                     center = Offset(mx, my),
                     style = Stroke(width = 3f)
                 )
             }
             drawOval(
-                color = Color.Black.copy(alpha = 0.4f),
-                topLeft = Offset(mx - m.radius * 0.85f, my + m.radius * 0.45f),
+                color = Color.Black.copy(alpha = 0.42f),
+                topLeft = Offset(mx - m.radius * 0.85f, my + m.radius * 0.48f),
                 size = Size(m.radius * 1.7f, m.radius * 0.65f)
             )
+            // Monster legs / wings / horns by type
+            val lower = m.templateId.lowercase()
+            if (lower.contains("spider")) {
+                for (leg in -1..1) {
+                    val offY = leg * 5f
+                    drawLine(bodyColor, Offset(mx - m.radius - 7f, my + offY), Offset(mx + m.radius + 7f, my - offY), strokeWidth = 2.5f)
+                }
+            } else if (lower.contains("dragon") || lower.contains("phoenix") || lower.contains("hydra")) {
+                val wingSpan = m.radius * 1.55f
+                drawPath(Path().apply {
+                    moveTo(mx, my)
+                    lineTo(mx - wingSpan, my - m.radius * 0.8f)
+                    lineTo(mx - wingSpan * 0.65f, my + m.radius * 0.35f)
+                    close()
+                }, color = bodyColor.copy(alpha = 0.65f))
+                drawPath(Path().apply {
+                    moveTo(mx, my)
+                    lineTo(mx + wingSpan, my - m.radius * 0.8f)
+                    lineTo(mx + wingSpan * 0.65f, my + m.radius * 0.35f)
+                    close()
+                }, color = bodyColor.copy(alpha = 0.65f))
+            } else if (lower.contains("bull") || lower.contains("balrog") || lower.contains("kundun")) {
+                drawLine(Color(0xFFFDE68A), Offset(mx - 6f, my - m.radius * 0.6f), Offset(mx - 14f, my - m.radius * 1.25f), strokeWidth = 3.5f)
+                drawLine(Color(0xFFFDE68A), Offset(mx + 6f, my - m.radius * 0.6f), Offset(mx + 14f, my - m.radius * 1.25f), strokeWidth = 3.5f)
+            }
+
             drawCircle(color = bodyColor, radius = m.radius, center = Offset(mx, my))
             drawCircle(
                 color = Color.Black.copy(alpha = 0.45f),
@@ -467,7 +540,7 @@ private fun DrawScope.drawHeroAvatar(
         val auraColor = if (weaponPlus >= 11) Color(0xFF38BDF8) else Color(0xFFFBBF24)
         drawCircle(
             color = auraColor.copy(alpha = 0.45f),
-            radius = 27f,
+            radius = 29f,
             center = Offset(x, y),
             style = Stroke(width = 3f)
         )
@@ -475,7 +548,7 @@ private fun DrawScope.drawHeroAvatar(
         drawCircle(
             color = auraColor,
             radius = 4f,
-            center = Offset(x + (cos(rad) * 27f).toFloat(), y + (sin(rad) * 27f).toFloat())
+            center = Offset(x + (cos(rad) * 29f).toFloat(), y + (sin(rad) * 29f).toFloat())
         )
     }
 
@@ -486,46 +559,60 @@ private fun DrawScope.drawHeroAvatar(
             2 -> Color(0xFF38BDF8)
             else -> Color(0xFFA855F7)
         }
-        val span = 28f + wingsTier * 4f
+        val span = 30f + wingsTier * 4f
         val leftWing = Path().apply {
             moveTo(x - 6f, y)
-            lineTo(x - span, y - 16f + flap)
+            lineTo(x - span, y - 18f + flap)
             lineTo(x - span * 0.72f, y + 10f)
             close()
         }
         val rightWing = Path().apply {
             moveTo(x + 6f, y)
-            lineTo(x + span, y - 16f + flap)
+            lineTo(x + span, y - 18f + flap)
             lineTo(x + span * 0.72f, y + 10f)
             close()
         }
-        drawPath(leftWing, color = wingColor.copy(alpha = 0.76f))
-        drawPath(rightWing, color = wingColor.copy(alpha = 0.76f))
+        drawPath(leftWing, color = wingColor.copy(alpha = 0.78f))
+        drawPath(rightWing, color = wingColor.copy(alpha = 0.78f))
     }
 
     if (hasPet) {
         val orbit = if (animationsEnabled) (nowMs / 500.0).toFloat() else 0.7f
-        val px = x + cos(orbit) * 30f
-        val py = y - 16f + sin(orbit) * 10f
-        drawCircle(color = Color(0xFF38BDF8), radius = 6f, center = Offset(px, py))
+        val px = x + cos(orbit) * 32f
+        val py = y - 18f + sin(orbit) * 10f
+        drawCircle(color = Color(0xFF38BDF8), radius = 6.5f, center = Offset(px, py))
     }
 
     drawOval(
         color = Color.Black.copy(alpha = 0.45f),
-        topLeft = Offset(x - 16f, y + 10f),
+        topLeft = Offset(x - 16f, y + 12f),
         size = Size(32f, 12f)
     )
 
-    drawCircle(color = accent, radius = 17f, center = Offset(x, y))
-    drawCircle(
-        color = if (isLocal) Color(0xFFFDE68A) else Color.White,
-        radius = 17f,
-        center = Offset(x, y),
-        style = Stroke(width = 2.5f)
+    // Armored torso + shoulders + head
+    drawRoundRect(
+        color = accent,
+        topLeft = Offset(x - 12f, y - 4f),
+        size = Size(24f, 20f),
+        cornerRadius = CornerRadius(6f, 6f)
     )
+    drawCircle(color = Color(0xFFFDE68A), radius = 8f, center = Offset(x, y - 11f))
+    // Class headgear (MG intentionally has no helmet!)
+    when (classId) {
+        ClassId.DK -> drawArc(Color(0xFFCBD5E1), 180f, 180f, true, Offset(x - 8f, y - 20f), Size(16f, 12f))
+        ClassId.DW -> drawPath(Path().apply {
+            moveTo(x - 10f, y - 15f)
+            lineTo(x, y - 28f)
+            lineTo(x + 10f, y - 15f)
+            close()
+        }, color = Color(0xFF2563EB))
+        ClassId.ELF -> drawCircle(Color(0xFF34D399), radius = 3.5f, center = Offset(x, y - 19f))
+        ClassId.DL -> drawRect(Color(0xFFFBBF24), topLeft = Offset(x - 7f, y - 22f), size = Size(14f, 5f))
+        ClassId.MG -> Unit // Magic Gladiator never wears helm
+    }
 
-    val wx = x + sin(facingAngle) * 22f
-    val wy = y + cos(facingAngle) * 22f
+    val wx = x + sin(facingAngle) * 24f
+    val wy = y + cos(facingAngle) * 24f
     drawLine(
         color = when (classId) {
             ClassId.DK -> Color(0xFFE2E8F0)
@@ -538,16 +625,19 @@ private fun DrawScope.drawHeroAvatar(
         end = Offset(wx, wy),
         strokeWidth = 5f
     )
+    if (classId == ClassId.DW || classId == ClassId.DL) {
+        drawCircle(color = Color(0xFFFBBF24), radius = 4.5f, center = Offset(wx, wy))
+    }
 
     val ratio = (hp.toFloat() / max(1, maxHp)).coerceIn(0f, 1f)
-    drawRect(color = Color(0xFF0F172A), topLeft = Offset(x - 26f, y - 30f), size = Size(52f, 5f))
+    drawRect(color = Color(0xFF0F172A), topLeft = Offset(x - 26f, y - 34f), size = Size(52f, 5f))
     drawRect(
         color = if (isLocal) Color(0xFF22C55E) else Color(0xFF38BDF8),
-        topLeft = Offset(x - 26f, y - 30f),
+        topLeft = Offset(x - 26f, y - 34f),
         size = Size(52f * ratio, 5f)
     )
     drawIntoCanvas { canvas ->
         labelPaint.color = if (isLocal) Color(0xFFFDE68A).toArgb() else Color(0xFFBAE6FD).toArgb()
-        canvas.nativeCanvas.drawText(displayName, x, y - 37f, labelPaint)
+        canvas.nativeCanvas.drawText(displayName, x, y - 41f, labelPaint)
     }
 }

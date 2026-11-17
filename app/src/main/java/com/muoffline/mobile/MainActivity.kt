@@ -122,6 +122,7 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
                 errorText = authError,
                 onLogin = { id, pw -> viewModel.login(id, pw) },
                 onRegister = { id, pw, conf -> viewModel.register(id, pw, conf) },
+                onQuickPlay = { viewModel.quickGuestLogin() },
                 onClearError = { viewModel.clearAuthError() }
             )
         }

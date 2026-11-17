@@ -580,6 +580,7 @@
       monsters: [],
       drops: [],
       vfx: [],
+      particles: [],
       floats: [],
       lanPeers: {},
       chatMsgs: [],
@@ -1194,7 +1195,7 @@
       state.activeHero.maxHp = der.maxHp; state.activeHero.maxMp = der.maxMp;
       state.activeHero.hp = Math.min(der.maxHp, state.activeHero.hp || der.maxHp);
       state.activeHero.mp = Math.min(der.maxMp, state.activeHero.mp || der.maxMp);
-      state.drops = []; state.vfx = []; state.floats = [];
+      state.drops = []; state.vfx = []; state.particles = []; state.floats = [];
       spawnMapMonsters(state.activeHero.mapId);
       elTitle.classList.add("hidden");
       elGame.classList.remove("hidden");
@@ -1216,13 +1217,71 @@
       if (h.level < target.minLevel) { pushFloat(h.x, h.y - 26, `${target.name} requiere Nv.${target.minLevel}`, "#ef4444"); e.target.value = h.mapId; return; }
       if (target.id === "icarus" && !h.equipment.wings) { pushFloat(h.x, h.y - 26, "Icarus requiere Alas equipadas", "#38bdf8"); e.target.value = h.mapId; return; }
       h.mapId = target.id; h.x = SAFE_CENTER; h.y = SAFE_CENTER;
-      state.drops = []; spawnMapMonsters(target.id); saveCurrentAccountData(); refreshHud();
+      state.drops = []; state.vfx = []; state.particles = []; spawnMapMonsters(target.id); saveCurrentAccountData(); refreshHud();
       MuAudio.playSweep(520, 880, 0.14);
     };
 
     const pushFloat = (x, y, text, color = "#fbbf24", crit = false) => {
       state.floats.push({ x, y, text, color, crit, at: Date.now() });
       if (state.floats.length > 26) state.floats.shift();
+    };
+
+    const spawnExplosionParticles = (wx, wz, baseColor = "#ef4444", isBoss = false, radius = 18) => {
+      if (!state.settings.animations) return;
+      const now = Date.now();
+      const count = isBoss ? 34 : 20;
+      const palette = [baseColor, "#f97316", "#fbbf24", "#fef08a"];
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const speed = (isBoss ? 145 : 95) * (0.45 + Math.random() * 0.9);
+        state.particles.push({
+          kind: "explosion",
+          x: wx + (Math.random() - 0.5) * radius * 0.6,
+          y: 10 + Math.random() * 14,
+          z: wz + (Math.random() - 0.5) * radius * 0.6,
+          vx: Math.cos(ang) * speed,
+          vy: (isBoss ? 165 : 120) * (0.5 + Math.random() * 0.8),
+          vz: Math.sin(ang) * speed,
+          size: (isBoss ? 7.5 : 5.5) * (0.65 + Math.random() * 0.7),
+          color: palette[i % palette.length],
+          color2: "#ffffff",
+          bornAt: now,
+          lifeMs: (isBoss ? 950 : 680) + Math.random() * 340,
+          spin: Math.random() * Math.PI * 2,
+          gravity: 340,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+      if (state.particles.length > 300) state.particles.splice(0, state.particles.length - 300);
+    };
+
+    const spawnAoeSparkles = (wx, wz, aoeRadius = 110, colorHex = "#38bdf8", isHeal = false) => {
+      if (!state.settings.animations) return;
+      const now = Date.now();
+      const count = Math.min(28, Math.max(14, Math.round(aoeRadius * 0.18)));
+      const accent = isHeal ? "#bbf7d0" : "#fde68a";
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2 + Math.random() * 0.45;
+        const dist = Math.sqrt(Math.random()) * aoeRadius * 0.92;
+        state.particles.push({
+          kind: "sparkle",
+          x: wx + Math.cos(ang) * dist,
+          y: 3 + Math.random() * 16,
+          z: wz + Math.sin(ang) * dist,
+          vx: Math.cos(ang + Math.PI * 0.5) * (10 + Math.random() * 16),
+          vy: 14 + Math.random() * 24,
+          vz: Math.sin(ang + Math.PI * 0.5) * (10 + Math.random() * 16),
+          size: 4.0 + Math.random() * 3.8,
+          color: i % 3 === 0 ? accent : colorHex,
+          color2: "#ffffff",
+          bornAt: now,
+          lifeMs: 1650 + Math.random() * 850,
+          spin: Math.random() * Math.PI * 2,
+          gravity: 0,
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+      if (state.particles.length > 300) state.particles.splice(0, state.particles.length - 300);
     };
 
     const addItem = (h, item) => {
@@ -1262,7 +1321,10 @@
           const heal = Math.round(der.maxHp * 0.45);
           h.mp -= mpCost; h.hp = Math.min(der.maxHp, h.hp + heal);
           pushFloat(h.x, h.y - 24, `+${heal} HP`, "#34d399", true);
-          if (state.settings.animations) state.vfx.push({ id: sid, x: h.x, y: h.y, tx: h.x, ty: h.y, color, r: aoe, at: now, dur: 420 });
+          if (state.settings.animations) {
+            state.vfx.push({ id: sid, x: h.x, y: h.y, tx: h.x, ty: h.y, color, r: aoe, at: now, dur: 420 });
+            spawnAoeSparkles(h.x, h.y, aoe, color, true);
+          }
           return;
         }
       } else {
@@ -1279,7 +1341,10 @@
       });
       const tx = primary ? primary.x : h.x + Math.sin(state.facing) * 60;
       const ty = primary ? primary.y : h.y + Math.cos(state.facing) * 60;
-      if (state.settings.animations) state.vfx.push({ id: sid, x: h.x, y: h.y, tx, ty, color, r: aoe, at: now, dur: 380 });
+      if (state.settings.animations) {
+        state.vfx.push({ id: sid, x: h.x, y: h.y, tx, ty, color, r: aoe, at: now, dur: 380 });
+        if (skillIdx !== null) spawnAoeSparkles(tx, ty, aoe, color, false);
+      }
       h.mp = Math.max(0, h.mp - mpCost);
       if (!primary) return;
 
@@ -1299,6 +1364,7 @@
         if (m.hp === 0) {
           kills++;
           MuAudio.playMonsterVoice(m, h, true);
+          spawnExplosionParticles(m.x, m.y, m.color, m.boss, m.r);
           gainExp += Math.max(5, Math.round(m.exp * mapMeta.expRate * rates.expMul));
           gainZen += Math.max(10, Math.round(m.zen * 0.35 * mapMeta.dropZen * rates.zenMul));
           m.respawnAt = now + (m.boss ? 16000 : 6000);
@@ -1893,6 +1959,33 @@
       }
     };
 
+    const renderParticles3D = (now) => {
+      if (!state.settings.animations || state.particles.length === 0) return;
+      for (let i = 0; i < state.particles.length; i++) {
+        const p = state.particles[i];
+        const age = Math.max(0, Math.min(1, (now - p.bornAt) / p.lifeMs));
+        if (p.kind === "explosion") {
+          const scale = p.size * (1 - age * 0.85);
+          if (scale <= 0.2) continue;
+          const col = age < 0.22 ? p.color2 : p.color;
+          const emissive = 0.95 * (1 - age * 0.45);
+          drawBox3D(p.x, p.y, p.z, scale, scale, scale, col, p.spin + age * 10, emissive);
+        } else {
+          // Persistent AoE skill sparkle with twinkle pulse & soft fade envelope
+          const fadeIn = Math.min(1, age * 5.5);
+          const fadeOut = Math.min(1, (1 - age) * 2.2);
+          const twinkle = 0.45 + 0.55 * Math.abs(Math.sin(now * 0.015 + p.phase));
+          const s = p.size * fadeIn * fadeOut * twinkle;
+          if (s <= 0.25) continue;
+          const rot = p.spin + now * 0.004;
+          drawBox3D(p.x, p.y, p.z, s, s * 1.45, s * 0.45, p.color, rot, 0.9);
+          if (state.settings.hdGraphics) {
+            drawBox3D(p.x, p.y, p.z, s * 1.45, s * 0.45, s * 0.45, p.color2, rot + 0.78, 0.95);
+          }
+        }
+      }
+    };
+
     const renderWorld3D = (now) => {
       const w = window.innerWidth, hgt = window.innerHeight;
       if (webglCanvas.width !== w || webglCanvas.height !== hgt) {
@@ -2060,7 +2153,7 @@
         drawOverlayPill(`${h.name} [Nv.${h.level}]`, hsp.x, hsp.y - 20, "#fde68a");
       }
 
-      // 8. 3D Skill VFX Cubes/Rings
+      // 8. 3D Skill VFX Cubes/Rings + Particles System (Explosions & Persistent AoE Sparkles)
       state.vfx.forEach(v => {
         const p = (now - v.at) / v.dur;
         const cnt = 6;
@@ -2070,6 +2163,7 @@
           drawBox3D(v.tx + Math.cos(ang) * rad, 14 + Math.sin(p * Math.PI) * 18, v.ty + Math.sin(ang) * rad, 8, 8, 8, v.color, ang, 0.85);
         }
       });
+      renderParticles3D(now);
 
       // 9. Floating Damage Crits projected to 2D Overlay
       state.floats.forEach(f => {
@@ -2175,6 +2269,20 @@
           lanChannel.postMessage({ type: "pos", sender: lanTabId, hero: { name: h.name, classId: h.classId, level: h.level, mapId: h.mapId, x: h.x, y: h.y, dir: state.facing, wingsTier: h.equipment.wings ? h.equipment.wings.wingsTier : 0 } });
         }
         state.vfx = state.vfx.filter(v => now - v.at < v.dur);
+        state.particles = state.particles.filter(p => {
+          if (now - p.bornAt >= p.lifeMs) return false;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.z += p.vz * dt;
+          if (p.kind === "explosion") {
+            p.vy -= p.gravity * dt;
+            if (p.y <= 2) { p.y = 2; p.vy = Math.abs(p.vy) * 0.32; p.vx *= 0.72; p.vz *= 0.72; }
+          } else {
+            p.vx *= 0.98;
+            p.vz *= 0.98;
+          }
+          return true;
+        });
         state.floats = state.floats.filter(f => now - f.at < 950);
         if (now - lastSave > 3500) { lastSave = now; saveCurrentAccountData(); }
         renderWorld3D(now); drawMinimap(); refreshHud();

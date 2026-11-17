@@ -345,46 +345,94 @@ fun TitleScreen(
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = heroName,
-                            onValueChange = { if (it.length <= 16) heroName = it },
-                            label = { Text("Nombre del Héroe") },
-                            placeholder = { Text(MuCatalog.CLASS_CATALOG.getValue(selectedClass).name) },
-                            singleLine = true,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("hero_name_input")
-                        )
-                        Button(
-                            onClick = {
-                                val chosen = heroName.trim().ifEmpty {
-                                    MuCatalog.CLASS_CATALOG.getValue(selectedClass).name
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val stackVertically = maxWidth < 520.dp
+                        if (stackVertically) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = heroName,
+                                    onValueChange = { if (it.length <= 16) heroName = it },
+                                    label = { Text("Nombre del Héroe") },
+                                    placeholder = { Text(MuCatalog.CLASS_CATALOG.getValue(selectedClass).name) },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("hero_name_input")
+                                )
+                                Button(
+                                    onClick = {
+                                        val chosen = heroName.trim().ifEmpty {
+                                            MuCatalog.CLASS_CATALOG.getValue(selectedClass).name
+                                        }
+                                        val err = onCreateHero(chosen, selectedClass)
+                                        if (err != null) {
+                                            creationFeedback = err
+                                        } else {
+                                            creationFeedback = null
+                                            heroName = ""
+                                        }
+                                    },
+                                    enabled = heroes.size < 5 && maxHeroLevel >= MuCatalog.CLASS_CATALOG.getValue(selectedClass).unlockLevel,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MuGold,
+                                        contentColor = Color(0xFF1B1202)
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 52.dp)
+                                        .testTag("create_hero_button")
+                                ) {
+                                    Icon(Icons.Rounded.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(stringResource(id = R.string.action_start_adventure))
                                 }
-                                val err = onCreateHero(chosen, selectedClass)
-                                if (err != null) {
-                                    creationFeedback = err
-                                } else {
-                                    creationFeedback = null
-                                    heroName = ""
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = heroName,
+                                    onValueChange = { if (it.length <= 16) heroName = it },
+                                    label = { Text("Nombre del Héroe") },
+                                    placeholder = { Text(MuCatalog.CLASS_CATALOG.getValue(selectedClass).name) },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("hero_name_input")
+                                )
+                                Button(
+                                    onClick = {
+                                        val chosen = heroName.trim().ifEmpty {
+                                            MuCatalog.CLASS_CATALOG.getValue(selectedClass).name
+                                        }
+                                        val err = onCreateHero(chosen, selectedClass)
+                                        if (err != null) {
+                                            creationFeedback = err
+                                        } else {
+                                            creationFeedback = null
+                                            heroName = ""
+                                        }
+                                    },
+                                    enabled = heroes.size < 5 && maxHeroLevel >= MuCatalog.CLASS_CATALOG.getValue(selectedClass).unlockLevel,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MuGold,
+                                        contentColor = Color(0xFF1B1202)
+                                    ),
+                                    modifier = Modifier
+                                        .heightIn(min = 52.dp)
+                                        .testTag("create_hero_button")
+                                ) {
+                                    Icon(Icons.Rounded.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(stringResource(id = R.string.action_start_adventure))
                                 }
-                            },
-                            enabled = heroes.size < 5 && maxHeroLevel >= MuCatalog.CLASS_CATALOG.getValue(selectedClass).unlockLevel,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MuGold,
-                                contentColor = Color(0xFF1B1202)
-                            ),
-                            modifier = Modifier
-                                .heightIn(min = 52.dp)
-                                .testTag("create_hero_button")
-                        ) {
-                            Icon(Icons.Rounded.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(id = R.string.action_start_adventure))
+                            }
                         }
                     }
                 }

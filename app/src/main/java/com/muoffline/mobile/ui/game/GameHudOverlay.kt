@@ -33,6 +33,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -241,6 +242,7 @@ fun GameHudOverlay(
                         // Compact always-visible HP / MP / EXP strip
                         val hpRatioTop = (hero.hp.toFloat() / hero.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
                         val mpRatioTop = (hero.mp.toFloat() / hero.maxMp.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        val expRatioTop = (hero.exp.toFloat() / hero.expToNext.coerceAtLeast(1)).coerceIn(0f, 1f)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -267,6 +269,15 @@ fun GameHudOverlay(
                             )
                             Text("MP ${hero.mp}/${hero.maxMp}", style = MaterialTheme.typography.labelSmall, color = MuSky, fontSize = 10.sp)
                         }
+                        LinearProgressIndicator(
+                            progress = { expRatioTop },
+                            color = MuGold,
+                            trackColor = MuStoneCard,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                        )
 
                         // Scrollable labeled action pills (never crushed on narrow screens)
                         Row(
@@ -559,7 +570,7 @@ fun GameHudOverlay(
                                 val remainingSec = ((cdUntil - clockMs) / 1000.0).coerceAtLeast(0.0)
                                 val onCd = remainingSec > 0.05
                                 val skillColor = Color(sk.colorHex)
-                                val btnSize = (48f * scale).roundToInt().dp
+                                val btnSize = (54f * scale).roundToInt().dp
                                 Surface(
                                     color = if (onCd) MuObsidian.copy(alpha = 0.85f) else skillColor.copy(alpha = 0.25f),
                                     shape = CircleShape,
@@ -569,15 +580,19 @@ fun GameHudOverlay(
                                         .clickable(enabled = !onCd) { onCastSkill(sk.id) }
                                         .testTag("skill_button_$idx")
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(3.dp)) {
                                         if (onCd) {
                                             Text(String.format("%.1f", remainingSec), style = MaterialTheme.typography.labelMedium, color = MuTextSecondary)
                                         } else {
                                             Text(
-                                                text = sk.name.split(" ").take(2).joinToString("\n") { it.take(4) },
+                                                text = sk.name.replace(" ", "\n"),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MuTextPrimary,
-                                                lineHeight = 11.sp
+                                                fontSize = 9.sp,
+                                                lineHeight = 10.sp,
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }

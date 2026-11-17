@@ -18,16 +18,31 @@ object MuWorldConstants {
 object MuCatalog {
 
     val DEFAULT_NPCS: List<MapNpcDef> = listOf(
-        MapNpcDef("smith", MapId.LORENCIA, "Hanzo, Blacksmith", "shop", "Armas DK/MG", 420f, 430f),
-        MapNpcDef("armor-lorencia", MapId.LORENCIA, "Lumen, Armaduras", "shop", "Sets Lorencia", 480f, 405f),
-        MapNpcDef("wizard", MapId.LORENCIA, "Pasi Wizard", "shop", "Bastones y Magia", 540f, 430f),
-        MapNpcDef("barmaid", MapId.LORENCIA, "Liaman Barmaid", "shop", "Pociones", 420f, 530f),
-        MapNpcDef("vault-lorencia", MapId.LORENCIA, "Guardia del Baúl", "vault", "Almacén Seguro", 540f, 530f),
-        MapNpcDef("marlon", MapId.LORENCIA, "Marlon (Evolución)", "quest", "Quest Nv.150+ y 400+", 480f, 555f),
-        MapNpcDef("chaos", MapId.NORIA, "Chaos Goblin", "chaos", "Alas S1/S2/S3 y +13", 535f, 455f),
-        MapNpcDef("elf-merchant", MapId.NORIA, "Eo the Craftsman", "shop", "Arcos y Sets Elfa", 430f, 455f),
-        MapNpcDef("golden-archer", MapId.DEVIAS, "Golden Archer", "archer", "Talismanes por Alas S2", 535f, 455f),
-        MapNpcDef("devias-potion", MapId.DEVIAS, "Zienna, Mercader", "shop", "Pociones y Armas Devias", 430f, 455f)
+        MapNpcDef("smith", MapId.LORENCIA, "Hanzo, Blacksmith", "shop", "Armas DK/MG", 370f, 420f),
+        MapNpcDef("armor-lorencia", MapId.LORENCIA, "Lumen, Armaduras", "shop", "Sets Lorencia", 480f, 385f),
+        MapNpcDef("wizard", MapId.LORENCIA, "Pasi Wizard", "shop", "Bastones y Magia", 590f, 420f),
+        MapNpcDef("barmaid", MapId.LORENCIA, "Liaman Barmaid", "shop", "Pociones", 370f, 545f),
+        MapNpcDef("vault-lorencia", MapId.LORENCIA, "Guardia del Baúl", "vault", "Almacén Seguro", 590f, 545f),
+        MapNpcDef("marlon", MapId.LORENCIA, "Marlon (Evolución)", "quest", "Quest Nv.150+ / 400+", 480f, 585f),
+        MapNpcDef("elf-merchant", MapId.NORIA, "Eo the Craftsman", "shop", "Arcos y Sets Elfa", 385f, 435f),
+        MapNpcDef("chaos", MapId.NORIA, "Chaos Goblin", "chaos", "Alas S1/S2/S3 y +13", 575f, 435f),
+        MapNpcDef("vault-noria", MapId.NORIA, "Guardián Noria", "vault", "Baúl Compartido", 480f, 565f),
+        MapNpcDef("devias-potion", MapId.DEVIAS, "Zienna, Mercader", "shop", "Pociones y Armas Devias", 385f, 435f),
+        MapNpcDef("golden-archer", MapId.DEVIAS, "Golden Archer", "archer", "Talismanes -> Alas S2", 575f, 435f),
+        MapNpcDef("vault-devias", MapId.DEVIAS, "Guardián Devias", "vault", "Baúl Compartido", 480f, 565f),
+        MapNpcDef("shop-dungeon1", MapId.DUNGEON1, "Alex, Explorador", "shop", "Pociones Dungeon", 420f, 430f),
+        MapNpcDef("shop-dungeon2", MapId.DUNGEON2, "Sombra Mercader", "shop", "Equipo Catacumbas", 420f, 430f),
+        MapNpcDef("shop-dungeon3", MapId.DUNGEON3, "Thompson, Maestro", "shop", "Suministros Gorgon", 420f, 430f),
+        MapNpcDef("shop-atlans", MapId.ATLANS, "Guardia Marino", "shop", "Tienda de Atlans", 420f, 430f),
+        MapNpcDef("shop-losttower", MapId.LOSTTOWER, "Centinela Torre", "shop", "Pociones Lost Tower", 420f, 430f),
+        MapNpcDef("shop-kalima", MapId.KALIMA, "Oráculo Kalima", "shop", "Provisiones Kundun", 420f, 430f),
+        MapNpcDef("shop-tarkan", MapId.TARKAN, "Mercader Tarkan", "shop", "Suministros Desierto", 420f, 430f),
+        MapNpcDef("shop-icarus", MapId.ICARUS, "Guía de Icarus", "shop", "Pociones Celestiales", 420f, 430f),
+        MapNpcDef("shop-kanturu", MapId.KANTURU, "Ingeniero Kanturu", "shop", "Armería Antigua", 420f, 430f),
+        MapNpcDef("shop-aida", MapId.AIDA, "Druida de Aida", "shop", "Elixires del Bosque", 420f, 430f),
+        MapNpcDef("shop-crywolf", MapId.CRYWOLF, "Comandante CryWolf", "shop", "Frente de Batalla", 420f, 430f),
+        MapNpcDef("shop-stadium", MapId.STADIUM, "Maestro Stadium", "shop", "Suministros Arena", 420f, 430f),
+        MapNpcDef("shop-custom", MapId.CUSTOM, "Goblin Modder", "chaos", "Chaos & Arena Mod", 420f, 430f)
     )
 
     val CLASS_CATALOG: Map<ClassId, ClassMeta> = linkedMapOf(

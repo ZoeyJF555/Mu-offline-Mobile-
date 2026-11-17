@@ -1,14 +1,33 @@
 {
+  "schemaVersion": 2,
   "npcs": [
-    { "id": "smith", "mapId": "lorencia", "name": "Hanzo, Blacksmith", "role": "shop", "subtitle": "Armas DK/MG", "wx": 420, "wy": 430 },
-    { "id": "armor-lorencia", "mapId": "lorencia", "name": "Lumen, Armaduras", "role": "shop", "subtitle": "Sets Lorencia", "wx": 480, "wy": 405 },
-    { "id": "wizard", "mapId": "lorencia", "name": "Pasi Wizard", "role": "shop", "subtitle": "Bastones y Magia", "wx": 540, "wy": 430 },
-    { "id": "barmaid", "mapId": "lorencia", "name": "Liaman Barmaid", "role": "shop", "subtitle": "Pociones", "wx": 420, "wy": 530 },
-    { "id": "vault-lorencia", "mapId": "lorencia", "name": "Guardia del Baúl", "role": "vault", "subtitle": "Almacén Seguro", "wx": 540, "wy": 530 },
-    { "id": "marlon", "mapId": "lorencia", "name": "Marlon (Evolución)", "role": "quest", "subtitle": "Quest Nv. 150+ y 400+", "wx": 480, "wy": 555 },
-    { "id": "chaos", "mapId": "noria", "name": "Chaos Goblin", "role": "chaos", "subtitle": "Alas S1/S2/S3 y +13", "wx": 535, "wy": 455 },
-    { "id": "elf-merchant", "mapId": "noria", "name": "Eo the Craftsman", "role": "shop", "subtitle": "Arcos y Sets Elfa", "wx": 430, "wy": 455 },
-    { "id": "golden-archer", "mapId": "devias", "name": "Golden Archer", "role": "archer", "subtitle": "Talismanes por Alas S2", "wx": 535, "wy": 455 },
-    { "id": "devias-potion", "mapId": "devias", "name": "Zienna, Mercader", "role": "shop", "subtitle": "Pociones y Armas Devias", "wx": 430, "wy": 455 }
+    { "id": "smith", "mapId": "lorencia", "name": "Hanzo, Blacksmith", "role": "shop", "subtitle": "Armas DK/MG", "wx": 370, "wy": 420 },
+    { "id": "armor-lorencia", "mapId": "lorencia", "name": "Lumen, Armaduras", "role": "shop", "subtitle": "Sets Lorencia", "wx": 480, "wy": 385 },
+    { "id": "wizard", "mapId": "lorencia", "name": "Pasi Wizard", "role": "shop", "subtitle": "Bastones y Magia", "wx": 590, "wy": 420 },
+    { "id": "barmaid", "mapId": "lorencia", "name": "Liaman Barmaid", "role": "shop", "subtitle": "Pociones", "wx": 370, "wy": 545 },
+    { "id": "vault-lorencia", "mapId": "lorencia", "name": "Guardia del Baúl", "role": "vault", "subtitle": "Almacén Seguro", "wx": 590, "wy": 545 },
+    { "id": "marlon", "mapId": "lorencia", "name": "Marlon (Evolución)", "role": "quest", "subtitle": "Quest Nv.150+ / 400+", "wx": 480, "wy": 585 },
+
+    { "id": "elf-merchant", "mapId": "noria", "name": "Eo the Craftsman", "role": "shop", "subtitle": "Arcos y Sets Elfa", "wx": 385, "wy": 435 },
+    { "id": "chaos", "mapId": "noria", "name": "Chaos Goblin", "role": "chaos", "subtitle": "Alas S1/S2/S3 y +13", "wx": 575, "wy": 435 },
+    { "id": "vault-noria", "mapId": "noria", "name": "Guardián Noria", "role": "vault", "subtitle": "Baúl Compartido", "wx": 480, "wy": 565 },
+
+    { "id": "devias-potion", "mapId": "devias", "name": "Zienna, Mercader", "role": "shop", "subtitle": "Pociones y Armas Devias", "wx": 385, "wy": 435 },
+    { "id": "golden-archer", "mapId": "devias", "name": "Golden Archer", "role": "archer", "subtitle": "Talismanes -> Alas S2", "wx": 575, "wy": 435 },
+    { "id": "vault-devias", "mapId": "devias", "name": "Guardián Devias", "role": "vault", "subtitle": "Baúl Compartido", "wx": 480, "wy": 565 },
+
+    { "id": "shop-dungeon1", "mapId": "dungeon1", "name": "Alex, Explorador", "role": "shop", "subtitle": "Pociones Dungeon", "wx": 420, "wy": 430 },
+    { "id": "shop-dungeon2", "mapId": "dungeon2", "name": "Sombra Mercader", "role": "shop", "subtitle": "Equipo Catacumbas", "wx": 420, "wy": 430 },
+    { "id": "shop-dungeon3", "mapId": "dungeon3", "name": "Thompson, Maestro", "role": "shop", "subtitle": "Suministros Gorgon", "wx": 420, "wy": 430 },
+    { "id": "shop-atlans", "mapId": "atlans", "name": "Guardia Marino", "role": "shop", "subtitle": "Tienda de Atlans", "wx": 420, "wy": 430 },
+    { "id": "shop-losttower", "mapId": "losttower", "name": "Centinela Torre", "role": "shop", "subtitle": "Pociones Lost Tower", "wx": 420, "wy": 430 },
+    { "id": "shop-kalima", "mapId": "kalima", "name": "Oráculo Kalima", "role": "shop", "subtitle": "Provisiones Kundun", "wx": 420, "wy": 430 },
+    { "id": "shop-tarkan", "mapId": "tarkan", "name": "Mercader Tarkan", "role": "shop", "subtitle": "Suministros Desierto", "wx": 420, "wy": 430 },
+    { "id": "shop-icarus", "mapId": "icarus", "name": "Guía de Icarus", "role": "shop", "subtitle": "Pociones Celestiales", "wx": 420, "wy": 430 },
+    { "id": "shop-kanturu", "mapId": "kanturu", "name": "Ingeniero Kanturu", "role": "shop", "subtitle": "Armería Antigua", "wx": 420, "wy": 430 },
+    { "id": "shop-aida", "mapId": "aida", "name": "Druida de Aida", "role": "shop", "subtitle": "Elixires del Bosque", "wx": 420, "wy": 430 },
+    { "id": "shop-crywolf", "mapId": "crywolf", "name": "Comandante CryWolf", "role": "shop", "subtitle": "Frente de Batalla", "wx": 420, "wy": 430 },
+    { "id": "shop-stadium", "mapId": "stadium", "name": "Maestro Stadium", "role": "shop", "subtitle": "Suministros Arena", "wx": 420, "wy": 430 },
+    { "id": "shop-custom", "mapId": "custom", "name": "Goblin Modder", "role": "chaos", "subtitle": "Chaos & Arena Mod", "wx": 420, "wy": 430 }
   ]
 }

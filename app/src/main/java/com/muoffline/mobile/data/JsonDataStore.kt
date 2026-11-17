@@ -253,8 +253,16 @@ class JsonDataStore(context: Context) {
     @Synchronized
     fun loadNpcs(): List<MapNpcDef> {
         if (!npcsFile.exists()) return MuCatalog.DEFAULT_NPCS
-        val arr = runCatching { JSONObject(npcsFile.readText()).optJSONArray("npcs") }.getOrNull()
-            ?: return MuCatalog.DEFAULT_NPCS
+        val rootObj = runCatching { JSONObject(npcsFile.readText()) }.getOrNull() ?: return MuCatalog.DEFAULT_NPCS
+        if (rootObj.optInt("schemaVersion", 1) < 2) {
+            runCatching {
+                appContext.assets.open("data/npcs.json").bufferedReader().use { it.readText() }
+            }.onSuccess { raw ->
+                npcsFile.writeText(raw)
+                return MuCatalog.DEFAULT_NPCS
+            }
+        }
+        val arr = rootObj.optJSONArray("npcs") ?: return MuCatalog.DEFAULT_NPCS
         val list = (0 until arr.length()).mapNotNull { i ->
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
             MapNpcDef(

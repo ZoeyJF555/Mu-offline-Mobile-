@@ -174,6 +174,13 @@
     .controls-right {
       pointer-events: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 7px;
     }
+    .hud-standalone-btn {
+      padding: 7px 11px; font-size: 11.5px; border-radius: 12px;
+      background: rgba(9, 13, 22, 0.92); border: 1.5px solid var(--amber);
+      color: var(--text); box-shadow: 0 3px 12px rgba(0,0,0,0.45);
+      min-height: 44px; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .hud-standalone-btn.trade { border-color: var(--sky); color: #bae6fd; }
     .skill-btn {
       width: 54px; height: 54px; border-radius: 50%; padding: 3px;
       display: flex; align-items: center; justify-content: center;
@@ -188,6 +195,38 @@
       position: fixed; left: 50%; transform: translateX(-50%); bottom: 130px;
       z-index: 20; box-shadow: 0 6px 20px rgba(0,0,0,0.65);
     }
+    .hud-edit-banner {
+      position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+      z-index: 35; background: rgba(9, 13, 22, 0.95);
+      border: 1.5px solid var(--amber); border-radius: 12px;
+      padding: 8px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      box-shadow: 0 6px 22px rgba(0,0,0,0.7);
+    }
+    .hud-draggable.hud-editing {
+      outline: 2px dashed var(--amber) !important;
+      outline-offset: 3px;
+      cursor: grab !important;
+      touch-action: none !important;
+      z-index: 30;
+    }
+    .orientation-tip {
+      position: fixed; top: 6px; left: 50%; transform: translateX(-50%);
+      z-index: 32; background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--sky); border-radius: 999px;
+      padding: 4px 12px; font-size: 11px; color: #bae6fd;
+      display: none; align-items: center; gap: 8px;
+    }
+    .paperdoll-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;
+    }
+    .paperdoll-slot {
+      background: var(--bg-stone); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px; min-height: 76px;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 4px;
+    }
+    .paperdoll-slot.filled { border-color: rgba(251, 191, 36, 0.65); background: rgba(25, 34, 52, 0.95); }
+    .paperdoll-slot.blocked { border-color: rgba(239, 68, 68, 0.55); background: rgba(69, 10, 10, 0.35); }
+    .trade-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
 
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(4, 6, 12, 0.80);
@@ -196,7 +235,7 @@
     }
     .modal-box {
       background: var(--bg-card); border: 1px solid var(--gold);
-      border-radius: 14px; width: 100%; max-width: 760px; max-height: 88vh;
+      border-radius: 14px; width: 100%; max-width: 820px; max-height: 90vh;
       display: flex; flex-direction: column; overflow: hidden;
     }
     .modal-head {
@@ -216,11 +255,25 @@
       color: #bae6fd; padding: 8px 11px; border-radius: 8px; font-size: 12.5px;
     }
 
+    @media (orientation: portrait) and (max-width: 820px) {
+      .orientation-tip { display: flex; }
+    }
     @media (max-width: 680px) {
       .hud-globes { display: none; }
-      .joystick-base { width: 96px; height: 96px; }
-      .skill-btn { width: 48px; height: 48px; font-size: 9px; }
-      .atk-btn { width: 60px; height: 60px; font-size: 12px; }
+      .joystick-base { width: 92px; height: 92px; }
+      .skill-btn { width: 46px; height: 46px; font-size: 9px; }
+      .atk-btn { width: 58px; height: 58px; font-size: 12px; }
+    }
+    @media (max-height: 500px) {
+      .hud-top { top: 4px; left: 6px; right: 6px; }
+      .hud-bar { padding: 5px 8px; gap: 4px; }
+      .minimap-box canvas { width: 72px; height: 72px; }
+      .hud-bottom { left: 8px; right: 8px; bottom: 6px; }
+      .joystick-base { width: 92px; height: 92px; }
+      .hud-globes { padding: 5px 9px; max-width: 360px; }
+      .globe { width: 36px; height: 36px; font-size: 10px; }
+      .skill-btn { width: 46px; height: 46px; font-size: 9px; }
+      .atk-btn { width: 56px; height: 56px; font-size: 11px; }
     }
   </style>
 </head>
@@ -277,6 +330,17 @@
     <canvas id="overlay-canvas"></canvas>
     <div id="brightness-veil" style="position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:5;"></div>
 
+    <div id="orientation-tip" class="orientation-tip">
+      <span>Modo Horizontal recomendado</span>
+      <button id="btn-tip-landscape" class="sm sky" style="padding:3px 8px;font-size:10px;">Poner Horizontal</button>
+    </div>
+
+    <div id="hud-edit-banner" class="hud-edit-banner hidden">
+      <span style="font-size:12px;font-weight:700;color:var(--amber);">Arrastra cada botón táctil, Inventario o Trade</span>
+      <button id="btn-hud-edit-save" class="sm emerald">Guardar Acomodo</button>
+      <button id="btn-hud-edit-reset" class="sm">Centrar</button>
+    </div>
+
     <div class="hud-top">
       <div class="hud-bar">
         <div class="row between" style="gap:6px;">
@@ -294,20 +358,19 @@
         </div>
         <div style="width:100%;height:4px;background:#1e293b;border-radius:2px;overflow:hidden;"><div id="top-exp-bar" style="height:100%;width:0%;background:#d4af37;"></div></div>
         <div class="hud-actions-scroll">
-          <button id="hud-bag" class="sm">Mochila / Chaos</button>
           <button id="hud-vault" class="sm">Baúl</button>
           <button id="hud-lan" class="sm sky">LAN Local</button>
           <button id="hud-mods" class="sm gold">Mods</button>
           <button id="hud-admin" class="sm purple">Admin</button>
-          <button id="hud-settings" class="sm">Audio/3D</button>
+          <button id="hud-landscape" class="sm sky">Horiz./Full</button>
+          <button id="hud-settings" class="sm">Opciones</button>
           <button id="hud-mute" class="sm">Audio: ON</button>
-          <button id="hud-auto" class="sm emerald">MU Helper: OFF</button>
           <button id="hud-exit" class="sm crimson">Menú</button>
         </div>
       </div>
 
       <div class="minimap-box">
-        <canvas id="minimap-canvas" width="94" height="94"></canvas>
+        <canvas id="minimap-canvas" width="90" height="90"></canvas>
         <div id="hud-coords" class="coords-label">X:480 Y:480</div>
       </div>
     </div>
@@ -316,7 +379,8 @@
 
     <div class="hud-bottom">
       <div class="joystick-wrap">
-        <div class="joystick-base" id="joystick-base">
+        <button id="hud-auto" class="sm hud-draggable" data-hud-id="mu_helper" style="border-radius:999px;">MU Helper: OFF</button>
+        <div class="joystick-base hud-draggable" data-hud-id="joystick" id="joystick-base">
           <div class="joystick-knob" id="joystick-knob"></div>
         </div>
       </div>
@@ -336,14 +400,16 @@
 
       <div class="controls-right">
         <div class="row">
-          <button id="btn-pot-hp" class="sm crimson">HP [Q]</button>
-          <button id="btn-pot-mp" class="sm sky">MP [E]</button>
+          <button id="btn-hud-trade" class="hud-standalone-btn trade hud-draggable" data-hud-id="trade">⇄ Trade</button>
+          <button id="btn-hud-inventory" class="hud-standalone-btn hud-draggable" data-hud-id="inventory">🎒 Inv 0/24</button>
+          <button id="btn-pot-hp" class="sm crimson hud-draggable" data-hud-id="pot_hp">HP [Q]</button>
+          <button id="btn-pot-mp" class="sm sky hud-draggable" data-hud-id="pot_mp">MP [E]</button>
         </div>
         <div class="row" id="skills-bar">
-          <button id="btn-skill-0" class="skill-btn">Skill 1</button>
-          <button id="btn-skill-1" class="skill-btn">Skill 2</button>
-          <button id="btn-skill-2" class="skill-btn">Skill 3</button>
-          <button id="btn-attack" class="atk-btn">ATQ</button>
+          <button id="btn-skill-0" class="skill-btn hud-draggable" data-hud-id="skill_0">Skill 1</button>
+          <button id="btn-skill-1" class="skill-btn hud-draggable" data-hud-id="skill_1">Skill 2</button>
+          <button id="btn-skill-2" class="skill-btn hud-draggable" data-hud-id="skill_2">Skill 3</button>
+          <button id="btn-attack" class="atk-btn hud-draggable" data-hud-id="attack">ATQ</button>
         </div>
       </div>
     </div>
@@ -533,15 +599,56 @@
       { templateId: "rena-talisman", name: "Talisman / Rena", slot: "talisman", rarity: "excellent", plus: 0, attack: 0, defense: 0, magic: 0, hpBonus: 0, speedBonus: 0, wingsTier: 0, classReq: "all", color: "#fde047", valueZen: 2500, durability: 100 },
       { templateId: "blade-of-archangel", name: "Archangel Sword", slot: "weapon", rarity: "excellent", plus: 3, attack: 46, defense: 0, magic: 0, hpBonus: 0, speedBonus: 12, wingsTier: 0, classReq: "dk", color: "#f59e0b", valueZen: 9500, durability: 100 },
       { templateId: "dragon-armor", name: "Dragon Armor", slot: "armor", rarity: "excellent", plus: 2, attack: 0, defense: 34, magic: 0, hpBonus: 110, speedBonus: 0, wingsTier: 0, classReq: "dk", color: "#ef4444", valueZen: 7800, durability: 100 },
-      { templateId: "dragon-helm", name: "Dragon Helm", slot: "helm", rarity: "normal", plus: 1, attack: 0, defense: 20, magic: 0, hpBonus: 55, speedBonus: 0, wingsTier: 0, classReq: "dk", color: "#dc2626", valueZen: 4200, durability: 100 },
+      { templateId: "dragon-helm", name: "Dragon Helm (Solo DK)", slot: "helm", rarity: "normal", plus: 1, attack: 0, defense: 20, magic: 0, hpBonus: 55, speedBonus: 0, wingsTier: 0, classReq: "dk", color: "#dc2626", valueZen: 4200, durability: 100 },
+      { templateId: "dragon-gloves", name: "Dragon Gloves", slot: "gloves", rarity: "excellent", plus: 2, attack: 4, defense: 18, magic: 0, hpBonus: 40, speedBonus: 8, wingsTier: 0, classReq: "dk", color: "#ef4444", valueZen: 3900, durability: 100 },
+      { templateId: "dragon-boots", name: "Dragon Boots", slot: "boots", rarity: "excellent", plus: 2, attack: 0, defense: 20, magic: 0, hpBonus: 45, speedBonus: 14, wingsTier: 0, classReq: "dk", color: "#ef4444", valueZen: 4100, durability: 100 },
       { templateId: "viper-staff", name: "Grand Viper Staff", slot: "weapon", rarity: "excellent", plus: 3, attack: 24, defense: 0, magic: 52, hpBonus: 0, speedBonus: 0, wingsTier: 0, classReq: "dw", color: "#6366f1", valueZen: 9800, durability: 100 },
+      { templateId: "gs-helm", name: "Grand Soul Helm", slot: "helm", rarity: "excellent", plus: 2, attack: 0, defense: 16, magic: 10, hpBonus: 40, speedBonus: 0, wingsTier: 0, classReq: "dw", color: "#3b82f6", valueZen: 3800, durability: 100 },
+      { templateId: "gs-gloves", name: "Grand Soul Gloves", slot: "gloves", rarity: "excellent", plus: 2, attack: 0, defense: 14, magic: 12, hpBonus: 35, speedBonus: 6, wingsTier: 0, classReq: "dw", color: "#3b82f6", valueZen: 3500, durability: 100 },
+      { templateId: "gs-boots", name: "Grand Soul Boots", slot: "boots", rarity: "excellent", plus: 2, attack: 0, defense: 16, magic: 8, hpBonus: 40, speedBonus: 14, wingsTier: 0, classReq: "dw", color: "#3b82f6", valueZen: 3600, durability: 100 },
       { templateId: "viper-bow", name: "Sylph Wind Bow", slot: "weapon", rarity: "excellent", plus: 3, attack: 48, defense: 0, magic: 0, hpBonus: 0, speedBonus: 18, wingsTier: 0, classReq: "elf", color: "#10b981", valueZen: 9400, durability: 100 },
+      { templateId: "guardian-helm", name: "Guardian Helm", slot: "helm", rarity: "excellent", plus: 2, attack: 0, defense: 17, magic: 0, hpBonus: 45, speedBonus: 5, wingsTier: 0, classReq: "elf", color: "#10b981", valueZen: 3700, durability: 100 },
+      { templateId: "guardian-gloves", name: "Guardian Gloves", slot: "gloves", rarity: "excellent", plus: 2, attack: 6, defense: 15, magic: 0, hpBonus: 35, speedBonus: 10, wingsTier: 0, classReq: "elf", color: "#10b981", valueZen: 3600, durability: 100 },
+      { templateId: "guardian-boots", name: "Guardian Boots", slot: "boots", rarity: "excellent", plus: 2, attack: 0, defense: 17, magic: 0, hpBonus: 40, speedBonus: 16, wingsTier: 0, classReq: "elf", color: "#10b981", valueZen: 3700, durability: 100 },
       { templateId: "dark-reign-blade", name: "Dark Reign Blade", slot: "weapon", rarity: "excellent", plus: 3, attack: 54, defense: 0, magic: 44, hpBonus: 0, speedBonus: 0, wingsTier: 0, classReq: "mg", color: "#a855f7", valueZen: 12500, durability: 100 },
+      { templateId: "stormcrow-gloves", name: "Storm Crow Gloves", slot: "gloves", rarity: "excellent", plus: 2, attack: 10, defense: 20, magic: 10, hpBonus: 50, speedBonus: 8, wingsTier: 0, classReq: "mg", color: "#a855f7", valueZen: 4800, durability: 100 },
+      { templateId: "stormcrow-boots", name: "Storm Crow Boots", slot: "boots", rarity: "excellent", plus: 2, attack: 0, defense: 22, magic: 8, hpBonus: 55, speedBonus: 16, wingsTier: 0, classReq: "mg", color: "#a855f7", valueZen: 4900, durability: 100 },
       { templateId: "soleil-scepter", name: "Soleil Scepter", slot: "weapon", rarity: "excellent", plus: 3, attack: 50, defense: 0, magic: 48, hpBonus: 0, speedBonus: 0, wingsTier: 0, classReq: "dl", color: "#f59e0b", valueZen: 12800, durability: 100 },
+      { templateId: "darkmaster-helm", name: "Dark Master Mask", slot: "helm", rarity: "excellent", plus: 2, attack: 6, defense: 21, magic: 6, hpBonus: 60, speedBonus: 0, wingsTier: 0, classReq: "dl", color: "#f59e0b", valueZen: 5000, durability: 100 },
+      { templateId: "darkmaster-gloves", name: "Dark Master Gloves", slot: "gloves", rarity: "excellent", plus: 2, attack: 8, defense: 19, magic: 8, hpBonus: 45, speedBonus: 8, wingsTier: 0, classReq: "dl", color: "#f59e0b", valueZen: 4700, durability: 100 },
+      { templateId: "darkmaster-boots", name: "Dark Master Boots", slot: "boots", rarity: "excellent", plus: 2, attack: 0, defense: 21, magic: 0, hpBonus: 50, speedBonus: 16, wingsTier: 0, classReq: "dl", color: "#f59e0b", valueZen: 4800, durability: 100 },
+      { templateId: "pendant-lighting", name: "Pendant of Lightning", slot: "pendant", rarity: "excellent", plus: 1, attack: 16, defense: 0, magic: 16, hpBonus: 40, speedBonus: 8, wingsTier: 0, classReq: "all", color: "#fbbf24", valueZen: 6200, durability: 100 },
+      { templateId: "ring-ice", name: "Ring of Ice", slot: "ring", rarity: "excellent", plus: 1, attack: 8, defense: 12, magic: 8, hpBonus: 80, speedBonus: 4, wingsTier: 0, classReq: "all", color: "#38bdf8", valueZen: 5400, durability: 100 },
+      { templateId: "ring-poison", name: "Ring of Poison", slot: "ring", rarity: "excellent", plus: 1, attack: 10, defense: 10, magic: 10, hpBonus: 70, speedBonus: 6, wingsTier: 0, classReq: "all", color: "#22c55e", valueZen: 5400, durability: 100 },
+      { templateId: "guardian-angel", name: "Guardian Angel (Pet)", slot: "pet", rarity: "excellent", plus: 0, attack: 0, defense: 18, magic: 0, hpBonus: 120, speedBonus: 8, wingsTier: 0, classReq: "all", color: "#fde047", valueZen: 7500, durability: 100 },
+      { templateId: "satan-imp", name: "Imp Demon (Pet)", slot: "pet", rarity: "excellent", plus: 0, attack: 26, defense: 0, magic: 26, hpBonus: 0, speedBonus: 8, wingsTier: 0, classReq: "all", color: "#ef4444", valueZen: 7500, durability: 100 },
+      { templateId: "horn-uniria", name: "Horn of Uniria (Montura)", slot: "pet", rarity: "excellent", plus: 0, attack: 12, defense: 14, magic: 0, hpBonus: 60, speedBonus: 26, wingsTier: 0, classReq: "all", color: "#e2e8f0", valueZen: 9500, durability: 100 },
       { templateId: "dark-raven", name: "Dark Raven (Mascota DL)", slot: "pet", rarity: "ancient", plus: 1, attack: 28, defense: 0, magic: 0, hpBonus: 0, speedBonus: 10, wingsTier: 0, classReq: "dl", color: "#38bdf8", valueZen: 15000, durability: 100 },
       { templateId: "dark-horse", name: "Dark Horse (Mascota DL)", slot: "pet", rarity: "mythic", plus: 1, attack: 0, defense: 32, magic: 0, hpBonus: 150, speedBonus: 24, wingsTier: 0, classReq: "dl", color: "#f59e0b", valueZen: 22000, durability: 100 },
       { templateId: "plate-shield", name: "Dragon Slayer Shield", slot: "offhand", rarity: "normal", plus: 2, attack: 0, defense: 24, magic: 0, hpBonus: 45, speedBonus: 0, wingsTier: 0, classReq: "all", color: "#94a3b8", valueZen: 3900, durability: 100 }
     ];
+
+    const EQUIP_SLOT_DEFS = [
+      { key: "helm", label: "Casco", slot: "helm" },
+      { key: "pendant", label: "Collar", slot: "pendant" },
+      { key: "wings", label: "Alas", slot: "wings" },
+      { key: "weapon", label: "Arma", slot: "weapon" },
+      { key: "armor", label: "Pechera", slot: "armor" },
+      { key: "offhand", label: "Escudo", slot: "offhand" },
+      { key: "gloves", label: "Guantes", slot: "gloves" },
+      { key: "boots", label: "Botas", slot: "boots" },
+      { key: "pet", label: "Mascota", slot: "pet" },
+      { key: "ring1", label: "Anillo 1", slot: "ring" },
+      { key: "ring2", label: "Anillo 2", slot: "ring" }
+    ];
+
+    const CLASS_EQUIP_GUIDE = {
+      dk: "Dark Knight: Casco, Pechera, Guantes, Botas, Espadas/Hachas, Escudo, Collar, 2 Anillos, Alas y Mascotas (Ángel, Imp, Uniria).",
+      dw: "Dark Wizard: Casco, Pechera, Guantes, Botas, Bastones, Escudo mágico, Collar, 2 Anillos, Alas y Mascotas.",
+      elf: "Fairy Elf: Casco, Pechera, Guantes, Botas, Arcos/Ballestas, Escudo, Collar, 2 Anillos, Alas y Mascotas.",
+      mg: "Magic Gladiator: NO usa Casco (slot bloqueado). Equipa Pechera, Guantes, Botas, Espadas/Bastones, Escudo, Collar, 2 Anillos, Alas y Mascotas.",
+      dl: "Dark Lord: Casco/Máscara, Pechera, Guantes, Botas, Cetros, Escudo, Collar, 2 Anillos, Capa/Alas y exclusivas Cuervo Oscuro / Caballo Oscuro."
+    };
 
     const BUILTIN_MODS = [
       { id: "mod-fast-x50", name: "Fast Server x50", author: "MU Community", description: "EXP x12, Zen x8, Drop x1.6 y Chaos +15%.", enabled: true, expMultiplier: 12, zenMultiplier: 8, dropRateMultiplier: 1.6, chaosSuccessBonus: 15, resetLevel: 120 },
@@ -573,10 +680,12 @@
         brightness: 1.0,
         hdGraphics: true,
         animations: true,
-        muted: false
+        muted: false,
+        hudOffsets: {}
       }),
       manifest: loadJson(STORAGE_KEYS.manifest, { version: "6.3.1" }),
       activeHero: null,
+      editingHudLayout: false,
       monsters: [],
       drops: [],
       vfx: [],
@@ -594,6 +703,7 @@
       moveTarget: null,
       lastAttackAt: 0
     };
+    if (!state.settings.hudOffsets) state.settings.hudOffsets = {};
 
     // =========================================================================
     // 9-LAYER PROCEDURAL MU AUDIO ENGINE (WebAudio API, zero external MP3)
@@ -1012,6 +1122,15 @@
       };
     };
 
+    const normalizeHeroEquipment = (h) => {
+      if (!h.equipment) h.equipment = {};
+      ["weapon", "offhand", "armor", "helm", "gloves", "boots", "wings", "pendant", "ring1", "ring2", "pet"].forEach(k => {
+        if (h.equipment[k] === undefined) h.equipment[k] = null;
+      });
+      if (!CLASSES[h.classId]?.canHelm) h.equipment.helm = null;
+      return h;
+    };
+
     const createStarterHero = (name, classId) => {
       const cls = CLASSES[classId];
       return {
@@ -1019,7 +1138,12 @@
         classId, evolutionTier: 0, level: 1, resets: 0, exp: 0, expToNext: 120, zen: 5000,
         hp: cls.baseHp, maxHp: cls.baseHp, mp: cls.baseMp, maxMp: cls.baseMp, statPoints: 10,
         stats: { ...cls.baseStats }, mapId: "lorencia", x: SAFE_CENTER, y: SAFE_CENTER,
-        equipment: { weapon: { ...clone(cls.starterWeapon), id: uid("eq") }, armor: { ...clone(cls.starterArmor), id: uid("eq") }, offhand: null, helm: null, wings: null, pendant: null, pet: null },
+        equipment: {
+          weapon: { ...clone(cls.starterWeapon), id: uid("eq") },
+          armor: { ...clone(cls.starterArmor), id: uid("eq") },
+          offhand: null, helm: null, gloves: null, boots: null,
+          wings: null, pendant: null, ring1: null, ring2: null, pet: null
+        },
         inventory: [
           { ...clone(ITEM_POOL[0]), id: uid("it"), quantity: 8 },
           { ...clone(ITEM_POOL[1]), id: uid("it"), quantity: 6 },
@@ -1041,7 +1165,7 @@
     const loadAccount = (acc) => {
       state.accountId = (acc || "lorencia").trim().toLowerCase() || "lorencia";
       safeSet(STORAGE_KEYS.account, state.accountId);
-      state.heroes = loadJson(STORAGE_KEYS.heroesPrefix + state.accountId, []);
+      state.heroes = loadJson(STORAGE_KEYS.heroesPrefix + state.accountId, []).map(normalizeHeroEquipment);
       state.vault = loadJson(STORAGE_KEYS.vaultPrefix + state.accountId, []);
       if (state.heroes.length === 0) {
         state.heroes = [createStarterHero("Guerrero", "dk")];
@@ -1187,10 +1311,22 @@
       });
     };
 
+    const tryForceLandscape = () => {
+      try {
+        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock("landscape").catch(() => {});
+        }
+      } catch {}
+    };
+
     const enterWorld = (hero) => {
       MuAudio.ensureCtx();
       MuAudio.startBgm();
-      state.activeHero = clone(hero);
+      tryForceLandscape();
+      state.activeHero = normalizeHeroEquipment(clone(hero));
       const der = computeDerived(state.activeHero);
       state.activeHero.maxHp = der.maxHp; state.activeHero.maxMp = der.maxMp;
       state.activeHero.hp = Math.min(der.maxHp, state.activeHero.hp || der.maxHp);
@@ -1199,6 +1335,7 @@
       spawnMapMonsters(state.activeHero.mapId);
       elTitle.classList.add("hidden");
       elGame.classList.remove("hidden");
+      applyHudOffsets();
       populateMapSelect();
       refreshHud();
     };
@@ -1457,37 +1594,71 @@
 
     const showBagChaosModal = (startChaos = false, msg = null) => {
       const h = state.activeHero; if (!h) return;
+      normalizeHeroEquipment(h);
       let tab = startChaos ? "chaos" : "bag";
-      const render = (feedback) => openModal(`Mochila y Chaos Machine (${h.zen} Zen)`, (body) => {
+      const render = (feedback) => openModal(`Inventario y Equipo · ${CLASSES[h.classId].name} (${h.zen.toLocaleString()} Zen)`, (body) => {
         const tabs = document.createElement("div"); tabs.className = "row";
-        tabs.innerHTML = `<button class="${tab === "bag" ? "gold" : ""}" style="flex:1;">Equipo y Mochila (${h.inventory.length}/24)</button><button class="${tab === "chaos" ? "purple" : ""}" style="flex:1;">Chaos Machine</button>`;
+        tabs.innerHTML = `<button class="${tab === "bag" ? "gold" : ""}" style="flex:1;">Equipo (11 Slots) y Mochila (${h.inventory.length}/24)</button><button class="${tab === "chaos" ? "purple" : ""}" style="flex:1;">Chaos Machine</button>`;
         const [tb, tc] = tabs.querySelectorAll("button");
         tb.onclick = () => { tab = "bag"; render(null); }; tc.onclick = () => { tab = "chaos"; render(null); };
         body.appendChild(tabs);
         if (feedback) { const m = document.createElement("div"); m.className = "msg-banner"; m.textContent = feedback; body.appendChild(m); }
 
         if (tab === "bag") {
-          ["weapon", "offhand", "armor", "helm", "wings", "pendant", "pet"].forEach(slot => {
-            const eq = h.equipment[slot];
-            const r = document.createElement("div"); r.className = "item-row";
-            r.innerHTML = `<span><b>${slot.toUpperCase()}:</b> ${eq ? `<span style="color:${eq.color}">${eq.name} +${eq.plus}</span> <span class="muted">(${eq.durability ?? 100}% dur)</span>` : (slot === "helm" && !CLASSES[h.classId].canHelm ? "No usa casco (MG)" : "Vacío")}</span>`;
-            if (eq) {
-              const btn = document.createElement("button"); btn.className = "sm"; btn.textContent = "Quitar";
-              btn.onclick = () => { if (h.inventory.length < 24) { h.inventory.push(eq); h.equipment[slot] = null; saveCurrentAccountData(); render(null); } };
-              r.appendChild(btn);
+          const guide = document.createElement("div");
+          guide.className = "card";
+          guide.style.fontSize = "12px";
+          guide.innerHTML = `<b style="color:var(--amber);">Compatibilidad de Raza:</b> <span class="muted">${CLASS_EQUIP_GUIDE[h.classId]}</span>`;
+          body.appendChild(guide);
+
+          const pGrid = document.createElement("div");
+          pGrid.className = "paperdoll-grid";
+          EQUIP_SLOT_DEFS.forEach(def => {
+            const blocked = def.key === "helm" && !CLASSES[h.classId].canHelm;
+            const eq = h.equipment[def.key];
+            const card = document.createElement("div");
+            card.className = `paperdoll-slot ${blocked ? "blocked" : eq ? "filled" : ""}`;
+            if (blocked) {
+              card.innerHTML = `<div style="font-size:11px;font-weight:700;color:#fca5a5;">${def.label}</div><div style="font-size:11px;color:#ef4444;">MG no usa casco</div>`;
+            } else if (eq) {
+              card.innerHTML = `
+                <div>
+                  <div style="font-size:10.5px;color:var(--amber);font-weight:700;">${def.label}</div>
+                  <div style="font-size:12px;font-weight:700;color:${eq.color};">${eq.name}${eq.plus ? " +" + eq.plus : ""}</div>
+                  <div class="muted" style="font-size:10px;">ATK ${eq.attack || 0} · DEF ${eq.defense || 0} · Dur ${eq.durability ?? 100}%</div>
+                </div>`;
+              const btn = document.createElement("button"); btn.className = "sm"; btn.style.padding = "3px 7px"; btn.style.fontSize = "10.5px"; btn.textContent = "Quitar";
+              btn.onclick = () => {
+                if (h.inventory.length >= 24) return render("Mochila llena (24/24).");
+                h.inventory.push(eq); h.equipment[def.key] = null;
+                const d = computeDerived(h); h.maxHp = d.maxHp; h.maxMp = d.maxMp;
+                saveCurrentAccountData(); render(`Quitaste ${eq.name}.`);
+              };
+              card.appendChild(btn);
+            } else {
+              card.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--muted);">${def.label}</div><div class="muted" style="font-size:11px;">Vacío</div>`;
             }
-            body.appendChild(r);
+            pGrid.appendChild(card);
           });
+          body.appendChild(pGrid);
+
+          const invHead = document.createElement("h3");
+          invHead.textContent = `Mochila (${h.inventory.length}/24)`;
+          body.appendChild(invHead);
+          if (h.inventory.length === 0) body.innerHTML += `<div class="muted">Mochila vacía.</div>`;
           h.inventory.forEach((it, idx) => {
+            const reqLabel = it.classReq === "all" ? "Todas las razas" : `Solo ${it.classReq.toUpperCase()}`;
             const r = document.createElement("div"); r.className = "item-row";
-            r.innerHTML = `<div><div style="color:${it.color};font-weight:700;">${it.name}${it.plus ? " +" + it.plus : ""}${it.quantity > 1 ? " x" + it.quantity : ""}</div><div class="muted">${it.slot} · Valor ${it.valueZen} Zen</div></div><div class="row"></div>`;
+            r.innerHTML = `<div><div style="color:${it.color};font-weight:700;">${it.name}${it.plus ? " +" + it.plus : ""}${it.quantity > 1 ? " x" + it.quantity : ""}</div><div class="muted">${it.slot.toUpperCase()} · ${reqLabel} · ${it.valueZen} Zen</div></div><div class="row"></div>`;
             const act = r.querySelector(".row");
             if (!["jewel", "potion", "talisman"].includes(it.slot)) {
               const eqB = document.createElement("button"); eqB.className = "sm sky"; eqB.textContent = "Equipar";
               eqB.onclick = () => {
                 if (it.slot === "helm" && !CLASSES[h.classId].canHelm) return render("Magic Gladiator no puede equipar Casco.");
                 if (it.classReq !== "all" && it.classReq !== h.classId) return render(`Exclusivo de ${it.classReq.toUpperCase()}.`);
-                const old = h.equipment[it.slot]; h.equipment[it.slot] = it; h.inventory.splice(idx, 1); if (old) h.inventory.push(old);
+                let targetKey = it.slot;
+                if (it.slot === "ring") targetKey = !h.equipment.ring1 ? "ring1" : !h.equipment.ring2 ? "ring2" : "ring1";
+                const old = h.equipment[targetKey]; h.equipment[targetKey] = it; h.inventory.splice(idx, 1); if (old) h.inventory.push(old);
                 const d = computeDerived(h); h.maxHp = d.maxHp; h.maxMp = d.maxMp; MuAudio.playNotes([440, 880], 45); saveCurrentAccountData(); render(`Equipaste ${it.name}.`);
               };
               act.appendChild(eqB);
@@ -1694,7 +1865,74 @@
       row.append(btnSave, btnExport); body.appendChild(row);
     });
 
-    const showSettingsModal = () => openModal("Motor de Audio 9 Capas y Gráficos 3D", (body) => {
+    const showTradeModal = () => {
+      const h = state.activeHero; if (!h) return;
+      const peers = Object.values(state.lanPeers).filter(p => Date.now() - p.at < 8000);
+      const partnerName = peers[0] ? `${peers[0].name} (LAN)` : "Comerciante P2P Lorencia";
+      const mySelectedIds = new Set();
+      let myZen = 0;
+      const partnerItems = peers[0] ? [] : [
+        { ...clone(ITEM_POOL.find(x => x.templateId === "jewel-bless") || ITEM_POOL[2]), id: uid("tr"), quantity: 1 },
+        { ...clone(ITEM_POOL.find(x => x.templateId === "ring-ice") || ITEM_POOL[10]), id: uid("tr"), quantity: 1 }
+      ];
+      const partnerZen = peers[0] ? 0 : 1200;
+
+      const renderTrade = (feedback = null) => openModal(`Trade P2P · ${partnerName}`, (body) => {
+        if (feedback) { const fb = document.createElement("div"); fb.className = "msg-banner"; fb.textContent = feedback; body.appendChild(fb); }
+        const grid = document.createElement("div"); grid.className = "trade-grid";
+
+        const left = document.createElement("div"); left.className = "card col";
+        left.innerHTML = `<h3>Tu Oferta (${h.name})</h3><label class="muted">Zen a ofrecer (disp: ${h.zen}):</label>`;
+        const zenIn = document.createElement("input"); zenIn.type = "number"; zenIn.min = "0"; zenIn.max = String(h.zen); zenIn.value = String(myZen);
+        zenIn.oninput = (e) => { myZen = Math.max(0, Math.min(h.zen, parseInt(e.target.value || "0", 10) || 0)); };
+        left.appendChild(zenIn);
+        h.inventory.forEach(it => {
+          const picked = mySelectedIds.has(it.id);
+          const row = document.createElement("div"); row.className = "item-row";
+          row.innerHTML = `<span style="color:${it.color};font-size:12px;">${it.name}${it.plus ? " +" + it.plus : ""}${it.quantity > 1 ? " x" + it.quantity : ""}</span>`;
+          const b = document.createElement("button"); b.className = picked ? "emerald sm" : "sm"; b.textContent = picked ? "Ofrecido" : "Añadir";
+          b.onclick = () => { if (picked) mySelectedIds.delete(it.id); else mySelectedIds.add(it.id); renderTrade(null); };
+          row.appendChild(b); left.appendChild(row);
+        });
+
+        const right = document.createElement("div"); right.className = "card col";
+        right.innerHTML = `<h3>Oferta de ${partnerName}</h3><div class="muted">Zen recibido: <b style="color:var(--amber);">${partnerZen} Zen</b></div>`;
+        if (partnerItems.length === 0) right.innerHTML += `<div class="muted">Esperando confirmación de jugador LAN...</div>`;
+        partnerItems.forEach(it => {
+          const row = document.createElement("div"); row.className = "item-row";
+          row.innerHTML = `<span style="color:${it.color};font-size:12px;">${it.name}${it.plus ? " +" + it.plus : ""}</span><span class="muted">${it.slot}</span>`;
+          right.appendChild(row);
+        });
+
+        grid.append(left, right);
+        body.appendChild(grid);
+
+        const actions = document.createElement("div"); actions.className = "row";
+        const okBtn = document.createElement("button"); okBtn.className = "emerald"; okBtn.style.flex = "1"; okBtn.textContent = "Confirmar Trade";
+        okBtn.onclick = () => {
+          const offered = h.inventory.filter(i => mySelectedIds.has(i.id));
+          if (myZen > h.zen) return renderTrade("Zen insuficiente.");
+          h.inventory = h.inventory.filter(i => !mySelectedIds.has(i.id));
+          h.zen = h.zen - myZen + partnerZen;
+          partnerItems.forEach(pi => addItem(h, { ...clone(pi), id: uid("trd") }));
+          if (lanChannel && peers[0]) {
+            lanChannel.postMessage({ type: "chat", sender: lanTabId, name: h.name, text: `[Trade] Intercambiados ${offered.length} ítems y ${myZen} Zen.` });
+          }
+          MuAudio.playNotes([659, 784, 1046], 65);
+          saveCurrentAccountData();
+          refreshHud();
+          closeModal();
+          pushFloat(h.x, h.y - 32, "¡Trade completado!", "#34d399", true);
+        };
+        const cancelBtn = document.createElement("button"); cancelBtn.className = "crimson"; cancelBtn.textContent = "Cancelar";
+        cancelBtn.onclick = closeModal;
+        actions.append(okBtn, cancelBtn);
+        body.appendChild(actions);
+      });
+      renderTrade(null);
+    };
+
+    const showSettingsModal = () => openModal("Opciones · Audio, Gráficos 3D y HUD", (body) => {
       body.innerHTML = `
         <label>Volumen SFX / Voces / Skills: <span id="v-sfx">${Math.round(state.settings.sfxVolume * 100)}%</span></label>
         <input type="range" min="0" max="1" step="0.05" value="${state.settings.sfxVolume}" id="in-sfx" />
@@ -1708,6 +1946,19 @@
         <label class="row"><input type="checkbox" id="in-hd" ${state.settings.hdGraphics ? "checked" : ""} style="width:auto;" /> Detalles 3D HD (puente, barriles, partículas)</label>
         <label class="row"><input type="checkbox" id="in-anim" ${state.settings.animations ? "checked" : ""} style="width:auto;" /> Animaciones 3D y VFX</label>
       `;
+      if (state.activeHero) {
+        const hudCard = document.createElement("div");
+        hudCard.className = "card row between";
+        hudCard.innerHTML = `<div><b style="color:var(--amber);">Acomodar Controles HUD</b><div class="muted">Mueve botones táctiles, Inventario y Trade donde prefieras</div></div>`;
+        const btnRow = document.createElement("div"); btnRow.className = "row";
+        const btnArrange = document.createElement("button"); btnArrange.className = "gold sm"; btnArrange.textContent = "Acomodar Botones";
+        btnArrange.onclick = () => { closeModal(); setHudEditMode(true); };
+        const btnReset = document.createElement("button"); btnReset.className = "sm"; btnReset.textContent = "Centrar";
+        btnReset.onclick = () => { state.settings.hudOffsets = {}; saveJson(STORAGE_KEYS.settings, state.settings); applyHudOffsets(); };
+        btnRow.append(btnArrange, btnReset);
+        hudCard.appendChild(btnRow);
+        body.appendChild(hudCard);
+      }
       body.querySelector("#in-sfx").oninput = (e) => { state.settings.sfxVolume = +e.target.value; body.querySelector("#v-sfx").textContent = Math.round(state.settings.sfxVolume * 100) + "%"; MuAudio.syncGains(); saveJson(STORAGE_KEYS.settings, state.settings); };
       body.querySelector("#in-mus").oninput = (e) => { state.settings.musicVolume = +e.target.value; body.querySelector("#v-mus").textContent = Math.round(state.settings.musicVolume * 100) + "%"; MuAudio.syncGains(); saveJson(STORAGE_KEYS.settings, state.settings); };
       body.querySelector("#in-br").oninput = (e) => { state.settings.brightness = +e.target.value; body.querySelector("#v-br").textContent = Math.round(state.settings.brightness * 100) + "%"; document.getElementById("brightness-veil").style.opacity = String(Math.max(0, 1 - state.settings.brightness)); saveJson(STORAGE_KEYS.settings, state.settings); };
@@ -1725,11 +1976,62 @@
       saveJson(STORAGE_KEYS.settings, state.settings);
     };
 
+    const applyHudOffsets = () => {
+      document.querySelectorAll(".hud-draggable").forEach(el => {
+        const id = el.getAttribute("data-hud-id");
+        const off = (state.settings.hudOffsets && state.settings.hudOffsets[id]) || { x: 0, y: 0 };
+        el.style.transform = `translate(${off.x}px, ${off.y}px)`;
+        el.classList.toggle("hud-editing", state.editingHudLayout);
+      });
+    };
+
+    const setHudEditMode = (active) => {
+      state.editingHudLayout = active;
+      document.getElementById("hud-edit-banner").classList.toggle("hidden", !active);
+      applyHudOffsets();
+    };
+
+    document.querySelectorAll(".hud-draggable").forEach(el => {
+      let dragging = false, startX = 0, startY = 0, baseX = 0, baseY = 0;
+      el.addEventListener("pointerdown", (e) => {
+        if (!state.editingHudLayout) return;
+        e.preventDefault(); e.stopPropagation();
+        dragging = true;
+        const id = el.getAttribute("data-hud-id");
+        const cur = (state.settings.hudOffsets && state.settings.hudOffsets[id]) || { x: 0, y: 0 };
+        startX = e.clientX; startY = e.clientY; baseX = cur.x; baseY = cur.y;
+        el.setPointerCapture(e.pointerId);
+      }, true);
+      el.addEventListener("pointermove", (e) => {
+        if (!dragging || !state.editingHudLayout) return;
+        e.preventDefault();
+        const id = el.getAttribute("data-hud-id");
+        const nx = Math.max(-240, Math.min(240, baseX + (e.clientX - startX)));
+        const ny = Math.max(-240, Math.min(240, baseY + (e.clientY - startY)));
+        state.settings.hudOffsets[id] = { x: nx, y: ny };
+        el.style.transform = `translate(${nx}px, ${ny}px)`;
+      }, true);
+      const stopDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        saveJson(STORAGE_KEYS.settings, state.settings);
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+      };
+      el.addEventListener("pointerup", stopDrag, true);
+      el.addEventListener("pointercancel", stopDrag, true);
+    });
+
+    document.getElementById("btn-hud-edit-save").onclick = () => { saveJson(STORAGE_KEYS.settings, state.settings); setHudEditMode(false); };
+    document.getElementById("btn-hud-edit-reset").onclick = () => { state.settings.hudOffsets = {}; saveJson(STORAGE_KEYS.settings, state.settings); applyHudOffsets(); };
+    document.getElementById("btn-tip-landscape").onclick = tryForceLandscape;
+    document.getElementById("hud-landscape").onclick = tryForceLandscape;
+
     document.getElementById("btn-title-mods").onclick = showModsModal;
     document.getElementById("btn-title-admin").onclick = showAdminModal;
     document.getElementById("btn-title-settings").onclick = showSettingsModal;
     document.getElementById("hud-pj").onclick = showCharacterModal;
-    document.getElementById("hud-bag").onclick = () => showBagChaosModal(false);
+    document.getElementById("btn-hud-inventory").onclick = () => { if (!state.editingHudLayout) showBagChaosModal(false); };
+    document.getElementById("btn-hud-trade").onclick = () => { if (!state.editingHudLayout) showTradeModal(); };
     document.getElementById("hud-vault").onclick = showVaultModal;
     document.getElementById("hud-lan").onclick = showLanModal;
     document.getElementById("hud-mods").onclick = showModsModal;
@@ -1737,13 +2039,15 @@
     document.getElementById("hud-settings").onclick = showSettingsModal;
     document.getElementById("hud-mute").onclick = toggleMute;
     document.getElementById("hud-auto").onclick = () => {
+      if (state.editingHudLayout) return;
       state.autoHunt = !state.autoHunt;
       document.getElementById("hud-auto").textContent = `MU Helper: ${state.autoHunt ? "ON" : "OFF"}`;
+      document.getElementById("hud-auto").className = `sm hud-draggable ${state.autoHunt ? "emerald" : ""}`;
     };
-    document.getElementById("btn-attack").onclick = () => performCombat(null);
-    document.getElementById("btn-pot-hp").onclick = () => usePotion("hp");
-    document.getElementById("btn-pot-mp").onclick = () => usePotion("mp");
-    [0, 1, 2].forEach(i => { document.getElementById(`btn-skill-${i}`).onclick = () => performCombat(i); });
+    document.getElementById("btn-attack").onclick = () => { if (!state.editingHudLayout) performCombat(null); };
+    document.getElementById("btn-pot-hp").onclick = () => { if (!state.editingHudLayout) usePotion("hp"); };
+    document.getElementById("btn-pot-mp").onclick = () => { if (!state.editingHudLayout) usePotion("mp"); };
+    [0, 1, 2].forEach(i => { document.getElementById(`btn-skill-${i}`).onclick = () => { if (!state.editingHudLayout) performCombat(i); }; });
 
     const jBase = document.getElementById("joystick-base");
     const jKnob = document.getElementById("joystick-knob");
@@ -1759,8 +2063,8 @@
       state.pad.x = dx / maxR; state.pad.y = dy / maxR;
     };
     const resetJoy = () => { joyActive = false; jKnob.style.transform = "translate(0px, 0px)"; state.pad.x = 0; state.pad.y = 0; };
-    jBase.addEventListener("pointerdown", (e) => { joyActive = true; jBase.setPointerCapture(e.pointerId); updateJoy(e.clientX, e.clientY); });
-    jBase.addEventListener("pointermove", (e) => { if (joyActive) updateJoy(e.clientX, e.clientY); });
+    jBase.addEventListener("pointerdown", (e) => { if (state.editingHudLayout) return; joyActive = true; jBase.setPointerCapture(e.pointerId); updateJoy(e.clientX, e.clientY); });
+    jBase.addEventListener("pointermove", (e) => { if (joyActive && !state.editingHudLayout) updateJoy(e.clientX, e.clientY); });
     jBase.addEventListener("pointerup", resetJoy);
     jBase.addEventListener("pointercancel", resetJoy);
 
@@ -1837,6 +2141,7 @@
       const mpQty = h.inventory.filter(i => i.potionType === "mp").reduce((s, i) => s + (i.quantity || 1), 0);
       document.getElementById("btn-pot-hp").textContent = `HP x${hpQty}`;
       document.getElementById("btn-pot-mp").textContent = `MP x${mpQty}`;
+      document.getElementById("btn-hud-inventory").textContent = `🎒 Inv ${h.inventory.length}/24`;
       cls.skills.forEach((sk, idx) => {
         const b = document.getElementById(`btn-skill-${idx}`);
         const rem = ((state.cooldowns[sk.id] || 0) - Date.now()) / 1000;
@@ -1869,31 +2174,53 @@
     };
 
     const drawHumanoid3D = (wx, wz, yaw, bodyColor, trimColor, classId, opts, now) => {
-      const { wingsTier = 0, weaponPlus = 0, walking = false, isNpc = false, npcRole = "" } = opts;
+      const { wingsTier = 0, weaponPlus = 0, walking = false, isNpc = false, npcRole = "", eq = {} } = opts;
       const walkSwing = walking ? Math.sin(now * 0.014) * 4.5 : 0;
+      const armorCol = eq.armor ? eq.armor.color : bodyColor;
+      const bootsCol = eq.boots ? eq.boots.color : "#1e293b";
+      const glovesCol = eq.gloves ? eq.gloves.color : trimColor;
+      const helmCol = eq.helm ? eq.helm.color : null;
+      const wepCol = eq.weapon ? eq.weapon.color : trimColor;
+      const isMount = eq.pet && (eq.pet.templateId.includes("horse") || eq.pet.templateId.includes("uniria"));
+      const yOff = isMount ? 10 : 0;
 
       // Shadow
       drawBox3D(wx, 0.4, wz, 20, 0.4, 20, "#05070b", yaw);
+      if (isMount) {
+        const mc = eq.pet.templateId.includes("uniria") ? "#e2e8f0" : "#312e81";
+        drawBox3D(wx, 8, wz, 14, 11, 26, mc, yaw);
+        drawBox3D(wx + Math.sin(yaw) * 14, 15, wz + Math.cos(yaw) * 14, 8, 9, 9, mc, yaw);
+        if (eq.pet.templateId.includes("uniria")) {
+          drawBox3D(wx + Math.sin(yaw) * 17, 21, wz + Math.cos(yaw) * 17, 2, 7, 2, "#fde047", yaw, 0.6);
+        }
+      }
       // Boots / Legs
-      drawBox3D(wx - 4, 5, wz + walkSwing * 0.4, 5, 10, 5, "#1e293b", yaw);
-      drawBox3D(wx + 4, 5, wz - walkSwing * 0.4, 5, 10, 5, "#1e293b", yaw);
-      // Armored Torso & Pauldrons
-      drawBox3D(wx, 16, wz, 14, 14, 9, bodyColor, yaw, weaponPlus >= 7 ? 0.15 : 0);
-      drawBox3D(wx - 9, 20, wz, 5, 6, 7, trimColor, yaw);
-      drawBox3D(wx + 9, 20, wz, 5, 6, 7, trimColor, yaw);
+      drawBox3D(wx - 4, 5 + yOff, wz + walkSwing * 0.4, 5, 10, 5, bootsCol, yaw);
+      drawBox3D(wx + 4, 5 + yOff, wz - walkSwing * 0.4, 5, 10, 5, bootsCol, yaw);
+      // Armored Torso & Pauldrons & Gloves
+      drawBox3D(wx, 16 + yOff, wz, 14, 14, 9, armorCol, yaw, weaponPlus >= 7 ? 0.15 : 0);
+      drawBox3D(wx - 9, 20 + yOff, wz, 5, 6, 7, trimColor, yaw);
+      drawBox3D(wx + 9, 20 + yOff, wz, 5, 6, 7, trimColor, yaw);
+      drawBox3D(wx - 10, 12 + yOff, wz, 4, 5, 4, glovesCol, yaw);
+      drawBox3D(wx + 10, 12 + yOff, wz, 4, 5, 4, glovesCol, yaw);
+      // Offhand Shield
+      if (eq.offhand) {
+        const sx = wx - Math.cos(yaw) * 11, sz = wz + Math.sin(yaw) * 11;
+        drawBox3D(sx, 16 + yOff, sz, 2.5, 13, 10, eq.offhand.color, yaw, 0.18);
+      }
       // Cape behind DK/MG/DL
       if (!isNpc && (classId === "dl" || classId === "mg" || classId === "dk")) {
-        drawBox3D(wx - Math.sin(yaw) * 6, 15, wz - Math.cos(yaw) * 6, 12, 16, 2, bodyColor, yaw);
+        drawBox3D(wx - Math.sin(yaw) * 6, 15 + yOff, wz - Math.cos(yaw) * 6, 12, 16, 2, armorCol, yaw);
       }
       // Head
-      drawBox3D(wx, 27, wz, 9, 9, 9, "#fde68a", yaw);
+      drawBox3D(wx, 27 + yOff, wz, 9, 9, 9, "#fde68a", yaw);
       // Class Headgear (MG strictly NO HELM)
       if (!isNpc) {
-        if (classId === "dk") { drawBox3D(wx, 32, wz, 10, 5, 10, "#cbd5e1", yaw); drawBox3D(wx, 36, wz, 3, 4, 6, "#ef4444", yaw); }
-        else if (classId === "dw") { drawBox3D(wx, 33, wz, 11, 5, 11, "#2563eb", yaw); drawBox3D(wx, 38, wz, 6, 7, 6, "#1d4ed8", yaw); }
-        else if (classId === "elf") { drawBox3D(wx, 32, wz, 10, 3, 10, "#10b981", yaw); }
-        else if (classId === "dl") { drawBox3D(wx, 33, wz, 11, 5, 11, "#fbbf24", yaw); }
-        else if (classId === "mg") { drawBox3D(wx, 32, wz, 9, 4, 8, "#4c1d95", yaw); }
+        if (classId === "dk") { drawBox3D(wx, 32 + yOff, wz, 10, 5, 10, helmCol || "#cbd5e1", yaw); drawBox3D(wx, 36 + yOff, wz, 3, 4, 6, "#ef4444", yaw); }
+        else if (classId === "dw") { drawBox3D(wx, 33 + yOff, wz, 11, 5, 11, helmCol || "#2563eb", yaw); drawBox3D(wx, 38 + yOff, wz, 6, 7, 6, helmCol || "#1d4ed8", yaw); }
+        else if (classId === "elf") { drawBox3D(wx, 32 + yOff, wz, 10, 3, 10, helmCol || "#10b981", yaw); }
+        else if (classId === "dl") { drawBox3D(wx, 33 + yOff, wz, 11, 5, 11, helmCol || "#fbbf24", yaw); }
+        else if (classId === "mg") { drawBox3D(wx, 32 + yOff, wz, 9, 4, 8, "#4c1d95", yaw); }
       } else {
         drawBox3D(wx, 32, wz, 10, 4, 10, npcRole === "chaos" ? "#fbbf24" : "#334155", yaw);
       }
@@ -1903,22 +2230,22 @@
         const flap = state.settings.animations ? Math.sin(now * 0.008) * 4 : 0;
         const wc = wingsTier >= 3 ? "#fbbf24" : wingsTier === 2 ? "#38bdf8" : "#a855f7";
         const span = 16 + wingsTier * 4;
-        drawBox3D(wx - span * 0.65, 21 + flap, wz - 5, span, 14, 2, wc, yaw + 0.35, 0.25);
-        drawBox3D(wx + span * 0.65, 21 + flap, wz - 5, span, 14, 2, wc, yaw - 0.35, 0.25);
+        drawBox3D(wx - span * 0.65, 21 + yOff + flap, wz - 5, span, 14, 2, wc, yaw + 0.35, 0.25);
+        drawBox3D(wx + span * 0.65, 21 + yOff + flap, wz - 5, span, 14, 2, wc, yaw - 0.35, 0.25);
       }
 
       // +7/+11/+13 Orbiting Jewel Sparkle
       if (weaponPlus >= 7) {
         const a = now * 0.004;
         const sc = weaponPlus >= 11 ? "#38bdf8" : "#fbbf24";
-        drawBox3D(wx + Math.cos(a) * 18, 18, wz + Math.sin(a) * 18, 3.5, 3.5, 3.5, sc, a, 0.85);
+        drawBox3D(wx + Math.cos(a) * 18, 18 + yOff, wz + Math.sin(a) * 18, 3.5, 3.5, 3.5, sc, a, 0.85);
       }
 
       // Weapon held in right hand
       if (!isNpc) {
         const hx = wx + Math.cos(yaw) * 10 + Math.sin(yaw) * 8;
         const hz = wz - Math.sin(yaw) * 10 + Math.cos(yaw) * 8;
-        drawBox3D(hx, 18, hz, 3, 20, 3, trimColor, yaw, 0.2);
+        drawBox3D(hx, 18 + yOff, hz, 3, 20, 3, wepCol, yaw, 0.25);
       }
     };
 
@@ -2059,11 +2386,29 @@
         }
       }
 
-      // 2. Lorencia Wooden Bridge & Safe Citadel Architecture
+      // 2. Lorencia Wooden Bridge, Stone Gates, Tavern & Map-Specific MU Landmarks
       if (h.mapId === "lorencia") {
         drawBox3D(480, 1.5, 780, 68, 4, 88, "#6b4226");
         drawBox3D(447, 7, 780, 5, 10, 88, "#8b5a2b");
         drawBox3D(513, 7, 780, 5, 10, 88, "#8b5a2b");
+        // 4 Stone Citadel Gate Archways
+        [[0, -SAFE_RADIUS], [0, SAFE_RADIUS], [-SAFE_RADIUS, 0], [SAFE_RADIUS, 0]].forEach(([ox, oz]) => {
+          const rot = oz === 0 ? Math.PI / 2 : 0;
+          drawBox3D(SAFE_CENTER + ox - 16, 18, SAFE_CENTER + oz, 10, 36, 10, "#475569", rot);
+          drawBox3D(SAFE_CENTER + ox + 16, 18, SAFE_CENTER + oz, 10, 36, 10, "#475569", rot);
+          drawBox3D(SAFE_CENTER + ox, 38, SAFE_CENTER + oz, 44, 7, 12, "#78350f", rot);
+        });
+        // Tavern Tables near Barmaid
+        drawBox3D(395, 5, 520, 14, 8, 14, "#78350f");
+        drawBox3D(395, 10, 520, 16, 2, 16, "#b45309");
+      } else if (h.mapId === "noria") {
+        drawBox3D(SAFE_CENTER + 75, 18, SAFE_CENTER - 75, 10, 36, 10, "#a855f7", 0, 0.35);
+        drawBox3D(SAFE_CENTER - 75, 18, SAFE_CENTER + 75, 10, 36, 10, "#10b981", 0, 0.35);
+      } else if (h.mapId === "devias") {
+        drawBox3D(SAFE_CENTER, 24, SAFE_CENTER - SAFE_RADIUS, 88, 48, 14, "#bae6fd", 0, 0.18);
+      } else if (h.mapId === "stadium") {
+        drawBox3D(SAFE_CENTER, 12, SAFE_CENTER - 240, 480, 24, 12, "#f43f5e", 0, 0.15);
+        drawBox3D(SAFE_CENTER, 12, SAFE_CENTER + 240, 480, 24, 12, "#f43f5e", 0, 0.15);
       }
 
       // Central Magic Fountain + 4 Safe Plaza Corner Pillars & Flickering Bonfires
@@ -2135,16 +2480,24 @@
         if (sp) drawOverlayPill(`${p.name} Nv.${p.level}`, sp.x, sp.y, "#38bdf8");
       });
 
-      // 7. Local Hero 3D
+      // 7. Local Hero 3D (reflecting Shield, Gloves, Boots, Helm, Wings & distinct Pets)
       const cls = CLASSES[h.classId];
       drawHumanoid3D(h.x, h.y, state.facing, cls.color, cls.trim, h.classId, {
         wingsTier: h.equipment.wings ? (h.equipment.wings.wingsTier || 1) : 0,
         weaponPlus: h.equipment.weapon ? (h.equipment.weapon.plus || 0) : 0,
-        walking: state.isMoving
+        walking: state.isMoving,
+        eq: h.equipment
       }, now);
-      if (h.equipment.pet) {
+      if (h.equipment.pet && !h.equipment.pet.templateId.includes("horse") && !h.equipment.pet.templateId.includes("uniria")) {
         const orb = now * 0.003;
-        drawBox3D(h.x + Math.cos(orb) * 26, 26, h.y + Math.sin(orb) * 26, 7, 7, 7, "#38bdf8", orb, 0.7);
+        const tid = h.equipment.pet.templateId.toLowerCase();
+        const pc = tid.includes("angel") ? "#fde047" : tid.includes("imp") ? "#ef4444" : "#0f172a";
+        const px = h.x + Math.cos(orb) * 26, pz = h.y + Math.sin(orb) * 26;
+        drawBox3D(px, 26, pz, 7, 7, 7, pc, orb, 0.75);
+        if (tid.includes("angel") || tid.includes("raven")) {
+          drawBox3D(px - 6, 27, pz, 5, 2, 3, "#38bdf8", orb, 0.5);
+          drawBox3D(px + 6, 27, pz, 5, 2, 3, "#38bdf8", orb, 0.5);
+        }
       }
       const hsp = project3DTo2D(h.x, 45, h.y);
       if (hsp) {

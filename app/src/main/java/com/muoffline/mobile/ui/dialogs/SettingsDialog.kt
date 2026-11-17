@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.OpenWith
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,6 +26,9 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsDialog(
     settings: MobileHudSettings,
+    canEditHudLayout: Boolean = false,
+    onStartHudLayoutEdit: () -> Unit = {},
+    onResetHudLayout: () -> Unit = {},
     onUpdateSettings: ((MobileHudSettings) -> MobileHudSettings) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -38,7 +42,7 @@ fun SettingsDialog(
             border = BorderStroke(1.dp, MuGold.copy(alpha = 0.55f)),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .widthIn(max = 560.dp)
+                .widthIn(max = 580.dp)
                 .heightIn(max = 640.dp)
         ) {
             Column(
@@ -175,7 +179,7 @@ fun SettingsDialog(
                     }
                 }
 
-                // Touch HUD layout
+                // Touch HUD layout + Custom Button Positioner
                 Surface(
                     color = MuStoneCard,
                     shape = MaterialTheme.shapes.medium,
@@ -187,7 +191,7 @@ fun SettingsDialog(
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Botones Táctiles (HUD)", style = MaterialTheme.typography.titleMedium, color = MuEmerald)
+                        Text("Botones Táctiles, Inventario y Trade (HUD)", style = MaterialTheme.typography.titleMedium, color = MuEmerald)
                         Text(
                             text = "Tamaño Joystick y Skills: ${(settings.hudScale * 100).roundToInt()}%",
                             style = MaterialTheme.typography.bodySmall,
@@ -211,6 +215,37 @@ fun SettingsDialog(
                             valueRange = 0f..48f,
                             modifier = Modifier.testTag("slider_hud_bottom")
                         )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    onDismiss()
+                                    onStartHudLayoutEdit()
+                                },
+                                enabled = canEditHudLayout,
+                                colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                                    .testTag("edit_hud_layout_button")
+                            ) {
+                                Icon(Icons.Rounded.OpenWith, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (canEditHudLayout) "Acomodar Botones" else "Entra al mapa para acomodar")
+                            }
+                            OutlinedButton(
+                                onClick = onResetHudLayout,
+                                border = BorderStroke(1.dp, MuBorderSlate),
+                                modifier = Modifier
+                                    .heightIn(min = 48.dp)
+                                    .testTag("reset_hud_positions_button")
+                            ) {
+                                Text("Centrar", color = MuSky)
+                            }
+                        }
                     }
                 }
 

@@ -50,13 +50,14 @@ fun GameScreen(
     val incomingTrade by viewModel.incomingTrade.collectAsStateWithLifecycle()
     val tradeSession by viewModel.tradeSession.collectAsStateWithLifecycle()
     val chatMessages by viewModel.chatMessages.collectAsStateWithLifecycle()
+    val isEditingHudLayout by viewModel.isEditingHudLayout.collectAsStateWithLifecycle()
 
     var showCharacterDialog by remember { mutableStateOf(false) }
     var showInventoryDialog by remember { mutableStateOf(false) }
     var showVaultDialog by remember { mutableStateOf(false) }
     var inventoryInitialChaos by remember { mutableStateOf(false) }
     var activeNpc by remember { mutableStateOf<MapNpcDef?>(null) }
-    var isLandscapeLocked by remember { mutableStateOf(false) }
+    var isLandscapeLocked by remember { mutableStateOf(true) }
 
     val currentMapMeta = mapCatalog[hero.mapId] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(hero.mapId)
     val npcsOnMap = remember(hero.mapId, allNpcs) {
@@ -72,6 +73,7 @@ fun GameScreen(
 
     BackHandler {
         when {
+            isEditingHudLayout -> viewModel.setEditingHudLayout(false)
             tradeSession != null -> viewModel.cancelTrade()
             activeNpc != null -> activeNpc = null
             showVaultDialog -> showVaultDialog = false
@@ -118,6 +120,7 @@ fun GameScreen(
             autoHunt = autoHunt,
             muted = muted,
             isLandscapeLocked = isLandscapeLocked,
+            isEditingHudLayout = isEditingHudLayout,
             activeModsCount = mods.count { it.enabled },
             skillCooldowns = skillCooldowns,
             lanConnectedRoom = connectedRoom,
@@ -132,6 +135,7 @@ fun GameScreen(
                 inventoryInitialChaos = false
                 showInventoryDialog = true
             },
+            onOpenTrade = { viewModel.openTradeMenu() },
             onOpenMods = onOpenMods,
             onOpenLan = onOpenLan,
             onOpenSettings = onOpenSettings,
@@ -166,7 +170,10 @@ fun GameScreen(
             },
             onAcceptTrade = { viewModel.acceptIncomingTrade() },
             onDeclineTrade = { viewModel.declineIncomingTrade() },
-            onSendChat = { msg -> viewModel.lanManager.sendChat(msg) }
+            onSendChat = { msg -> viewModel.lanManager.sendChat(msg) },
+            onUpdateButtonOffset = { id, dxDp, dyDp -> viewModel.updateHudButtonOffset(id, dxDp, dyDp) },
+            onSaveHudLayout = { viewModel.setEditingHudLayout(false) },
+            onResetHudLayout = { viewModel.resetHudButtonOffsets() }
         )
     }
 
@@ -187,7 +194,7 @@ fun GameScreen(
             chaosBonus = activeModRates.chaosBonus,
             initialTabChaos = inventoryInitialChaos,
             onEquipItem = { viewModel.equipItem(it) },
-            onUnequipSlot = { viewModel.unequipSlot(it) },
+            onUnequipSlotKey = { viewModel.unequipSlotKey(it) },
             onUpgradeWithJewel = { id, jewel -> viewModel.upgradeWithJewel(id, jewel) },
             onChaosUpgrade = { id -> viewModel.chaosUpgrade(id) },
             onCraftWingsTier = { tier -> viewModel.craftWingsTier(tier) },

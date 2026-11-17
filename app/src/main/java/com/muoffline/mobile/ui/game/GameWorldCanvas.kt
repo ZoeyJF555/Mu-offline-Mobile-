@@ -249,7 +249,7 @@ fun GameWorldCanvas(
                 drawCircle(color = Color(0xFFFDE047), radius = 4f * flicker, center = Offset(gx, gy - 12f))
             }
 
-            // Lorencia southern river & iconic 3D-shaded wooden bridge (OpenMu-Client-Babylon landmark)
+            // Lorencia southern river, iconic wooden bridge, 4 stone gates & tavern tables
             if (hero.mapId == MapId.LORENCIA) {
                 val riverTop = 752f - camY
                 val riverH = 54f
@@ -272,6 +272,36 @@ fun GameWorldCanvas(
                 }
                 drawRect(color = Color(0xFF8B5A2B), topLeft = Offset(bx, riverTop - 4f), size = Size(6f, riverH + 8f))
                 drawRect(color = Color(0xFF8B5A2B), topLeft = Offset(bx + bw - 6f, riverTop - 4f), size = Size(6f, riverH + 8f))
+
+                // 4 Stone Citadel Gate Archways around Lorencia Safe Zone
+                val gates = listOf(
+                    Offset(safeSx, safeSy - safeR),
+                    Offset(safeSx, safeSy + safeR),
+                    Offset(safeSx - safeR, safeSy),
+                    Offset(safeSx + safeR, safeSy)
+                )
+                gates.forEach { g ->
+                    drawRoundRect(color = Color(0xFF475569), topLeft = Offset(g.x - 22f, g.y - 8f), size = Size(12f, 18f), cornerRadius = CornerRadius(2f, 2f))
+                    drawRoundRect(color = Color(0xFF475569), topLeft = Offset(g.x + 10f, g.y - 8f), size = Size(12f, 18f), cornerRadius = CornerRadius(2f, 2f))
+                    drawRoundRect(color = Color(0xFFD97706).copy(alpha = 0.7f), topLeft = Offset(g.x - 24f, g.y - 12f), size = Size(48f, 6f), cornerRadius = CornerRadius(2f, 2f))
+                }
+                // Lorencia Barmaid Tavern Tables near Barmaid NPC (410, 445)
+                val tx = 410f - camX
+                val ty = 468f - camY
+                drawCircle(color = Color(0xFF78350F), radius = 10f, center = Offset(tx - 16f, ty))
+                drawCircle(color = Color(0xFFFBBF24).copy(alpha = 0.55f), radius = 10f, center = Offset(tx - 16f, ty), style = Stroke(width = 1.5f))
+                drawCircle(color = Color(0xFF78350F), radius = 10f, center = Offset(tx + 14f, ty + 6f))
+            } else if (hero.mapId == MapId.NORIA) {
+                // Elven Chaos Alchemy Rune Ring
+                drawCircle(color = Color(0xFFA855F7).copy(alpha = 0.35f), radius = safeR * 0.52f, center = Offset(safeSx, safeSy), style = Stroke(width = 3f))
+                drawCircle(color = Color(0xFF10B981).copy(alpha = 0.3f), radius = safeR * 0.76f, center = Offset(safeSx, safeSy), style = Stroke(width = 2f))
+            } else if (hero.mapId == MapId.DEVIAS) {
+                // Devias Ice Castle Fortress Archways
+                drawRoundRect(color = Color(0xFF38BDF8).copy(alpha = 0.28f), topLeft = Offset(safeSx - 48f, safeSy - safeR - 8f), size = Size(96f, 18f), cornerRadius = CornerRadius(4f, 4f))
+                drawRoundRect(color = Color(0xFFE0F2FE).copy(alpha = 0.45f), topLeft = Offset(safeSx - 48f, safeSy - safeR - 8f), size = Size(96f, 18f), cornerRadius = CornerRadius(4f, 4f), style = Stroke(width = 2f))
+            } else if (hero.mapId == MapId.STADIUM) {
+                // Stadium Arena Perimeter Fences
+                drawRect(color = Color(0xFFF43F5E).copy(alpha = 0.55f), topLeft = Offset(safeSx - 220f, safeSy - 220f), size = Size(440f, 440f), style = Stroke(width = 4f))
             }
 
             // Central Safe Zone Magic Fountain / Warp Crystal
@@ -381,7 +411,7 @@ fun GameWorldCanvas(
                     facingAngle = lp.dir,
                     wingsTier = lp.wingsTier,
                     weaponPlus = lp.weaponPlus,
-                    hasPet = false,
+                    equipment = EquipSlots(),
                     hp = lp.hp,
                     maxHp = lp.maxHp,
                     displayName = "${lp.name} Nv.${lp.level}",
@@ -402,7 +432,7 @@ fun GameWorldCanvas(
                 facingAngle = heroFacingAngle,
                 wingsTier = heroWingsTier,
                 weaponPlus = hero.equipment.weapon?.plus ?: 0,
-                hasPet = hero.equipment.pet != null,
+                equipment = hero.equipment,
                 hp = hero.hp,
                 maxHp = hero.maxHp,
                 displayName = "${hero.name} [Nv.${hero.level}]",
@@ -802,7 +832,7 @@ private fun DrawScope.drawHeroAvatar(
     facingAngle: Float,
     wingsTier: Int,
     weaponPlus: Int,
-    hasPet: Boolean,
+    equipment: EquipSlots,
     hp: Int,
     maxHp: Int,
     displayName: String,
@@ -812,7 +842,8 @@ private fun DrawScope.drawHeroAvatar(
     labelPaint: Paint,
     pillPaint: Paint
 ) {
-    val accent = Color(MuCatalog.CLASS_CATALOG.getValue(classId).accentColor)
+    val accent = equipment.armor?.let { Color(it.colorHex) }
+        ?: Color(MuCatalog.CLASS_CATALOG.getValue(classId).accentColor)
     val armorTrim = when (classId) {
         ClassId.DK -> Color(0xFFFCA5A5)
         ClassId.DW -> Color(0xFF93C5FD)
@@ -820,11 +851,15 @@ private fun DrawScope.drawHeroAvatar(
         ClassId.MG -> Color(0xFFD8B4FE)
         ClassId.DL -> Color(0xFFFDE68A)
     }
+    val bootsColor = equipment.boots?.let { Color(it.colorHex) } ?: Color(0xFF1E293B)
+    val glovesColor = equipment.gloves?.let { Color(it.colorHex) } ?: armorTrim
+    val helmColor = equipment.helm?.let { Color(it.colorHex) }
 
     // +7 / +11 / +13 Excellence Jewel Aura
-    if (weaponPlus >= 7) {
+    val maxPlus = max(weaponPlus, equipment.armor?.plus ?: 0)
+    if (maxPlus >= 7) {
         val rot = if (animationsEnabled) (nowMs % 1600L) / 1600f * 6.283f else 0f
-        val auraColor = if (weaponPlus >= 11) Color(0xFF38BDF8) else Color(0xFFFBBF24)
+        val auraColor = if (maxPlus >= 11) Color(0xFF38BDF8) else Color(0xFFFBBF24)
         drawCircle(color = auraColor.copy(alpha = 0.42f), radius = 24f, center = Offset(x, y), style = Stroke(width = 2.2f))
         drawCircle(color = auraColor, radius = 3.5f, center = Offset(x + cos(rot) * 24f, y + sin(rot) * 24f))
     }
@@ -854,14 +889,45 @@ private fun DrawScope.drawHeroAvatar(
         }, color = wingColor.copy(alpha = 0.82f))
     }
 
-    // DL / Equipped Pet (Dark Raven or Guardian Spirit)
-    if (hasPet) {
+    // Distinct Equipped Pet Render (Dark Horse, Uniria, Dark Raven, Guardian Angel, Imp)
+    val pet = equipment.pet
+    val isMount = pet?.templateId?.contains("horse") == true || pet?.templateId?.contains("uniria") == true
+    val bodyYOffset = if (isMount) -6f else 0f
+    if (isMount && pet != null) {
+        val mountColor = if (pet.templateId.contains("uniria")) Color(0xFFE2E8F0) else Color(0xFF312E81)
+        val mountTrim = if (pet.templateId.contains("uniria")) Color(0xFF38BDF8) else Color(0xFFF59E0B)
+        drawOval(color = mountColor, topLeft = Offset(x - 16f, y + 1f), size = Size(32f, 13f))
+        drawOval(color = mountTrim, topLeft = Offset(x - 16f, y + 1f), size = Size(32f, 13f), style = Stroke(width = 1.6f))
+        drawCircle(color = mountColor, radius = 5f, center = Offset(x + 13f, y - 2f))
+        if (pet.templateId.contains("uniria")) {
+            drawLine(Color(0xFFFDE047), Offset(x + 15f, y - 6f), Offset(x + 20f, y - 12f), strokeWidth = 2f)
+        }
+    } else if (pet != null) {
         val orbit = if (animationsEnabled) (nowMs / 460.0).toFloat() else 0.7f
         val px = x + cos(orbit) * 24f
         val py = y - 18f + sin(orbit) * 7f
-        drawCircle(color = Color(0xFF0F172A), radius = 5f, center = Offset(px, py))
-        drawCircle(color = Color(0xFF38BDF8), radius = 3f, center = Offset(px, py))
+        val tid = pet.templateId.lowercase()
+        when {
+            tid.contains("angel") || tid.contains("guardian") -> {
+                drawCircle(color = Color(0xFFFEF08A).copy(alpha = 0.45f), radius = 8f, center = Offset(px, py))
+                drawCircle(color = Color(0xFF38BDF8), radius = 4.2f, center = Offset(px, py))
+                drawCircle(color = Color(0xFFFDE047), radius = 3.5f, center = Offset(px, py - 6f), style = Stroke(width = 1.4f))
+            }
+            tid.contains("imp") || tid.contains("satan") -> {
+                drawCircle(color = Color(0xFFDC2626), radius = 5f, center = Offset(px, py))
+                drawLine(Color(0xFFFDE047), Offset(px - 2f, py - 4f), Offset(px - 5f, py - 9f), strokeWidth = 1.8f)
+                drawLine(Color(0xFFFDE047), Offset(px + 2f, py - 4f), Offset(px + 5f, py - 9f), strokeWidth = 1.8f)
+            }
+            else -> {
+                // Dark Raven
+                drawCircle(color = Color(0xFF0F172A), radius = 5.5f, center = Offset(px, py))
+                drawCircle(color = Color(0xFF38BDF8), radius = 3f, center = Offset(px, py))
+                drawLine(Color(0xFF38BDF8), Offset(px - 7f, py - 2f), Offset(px + 7f, py - 2f), strokeWidth = 2f)
+            }
+        }
     }
+
+    val cy = y + bodyYOffset
 
     // Ground shadow
     drawOval(color = Color.Black.copy(alpha = 0.48f), topLeft = Offset(x - 13f, y + 10f), size = Size(26f, 9f))
@@ -869,51 +935,63 @@ private fun DrawScope.drawHeroAvatar(
     // Cape behind DK/DL/MG
     if (classId == ClassId.DL || classId == ClassId.DK || classId == ClassId.MG) {
         drawPath(Path().apply {
-            moveTo(x - 8f, y - 5f)
-            lineTo(x + 8f, y - 5f)
-            lineTo(x + 11f, y + 12f)
-            lineTo(x - 11f, y + 12f)
+            moveTo(x - 8f, cy - 5f)
+            lineTo(x + 8f, cy - 5f)
+            lineTo(x + 11f, cy + 12f)
+            lineTo(x - 11f, cy + 12f)
             close()
         }, color = accent.copy(alpha = 0.55f))
     }
 
     // Boots & Greaves
-    drawRoundRect(color = Color(0xFF1E293B), topLeft = Offset(x - 7f, y + 6f), size = Size(6f, 8f), cornerRadius = CornerRadius(2f, 2f))
-    drawRoundRect(color = Color(0xFF1E293B), topLeft = Offset(x + 1f, y + 6f), size = Size(6f, 8f), cornerRadius = CornerRadius(2f, 2f))
+    drawRoundRect(color = bootsColor, topLeft = Offset(x - 7f, cy + 6f), size = Size(6f, 8f), cornerRadius = CornerRadius(2f, 2f))
+    drawRoundRect(color = bootsColor, topLeft = Offset(x + 1f, cy + 6f), size = Size(6f, 8f), cornerRadius = CornerRadius(2f, 2f))
 
-    // Armored Torso & Shoulder Pauldrons
-    drawRoundRect(color = accent, topLeft = Offset(x - 9f, y - 6f), size = Size(18f, 14f), cornerRadius = CornerRadius(4f, 4f))
-    drawRoundRect(color = armorTrim, topLeft = Offset(x - 11f, y - 6f), size = Size(6f, 6f), cornerRadius = CornerRadius(2f, 2f))
-    drawRoundRect(color = armorTrim, topLeft = Offset(x + 5f, y - 6f), size = Size(6f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    // Armored Torso, Pauldrons & Equipped Gloves
+    drawRoundRect(color = accent, topLeft = Offset(x - 9f, cy - 6f), size = Size(18f, 14f), cornerRadius = CornerRadius(4f, 4f))
+    drawRoundRect(color = armorTrim, topLeft = Offset(x - 11f, cy - 6f), size = Size(6f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    drawRoundRect(color = armorTrim, topLeft = Offset(x + 5f, cy - 6f), size = Size(6f, 6f), cornerRadius = CornerRadius(2f, 2f))
+    // Gloves on hands
+    drawCircle(color = glovesColor, radius = 3.2f, center = Offset(x - 10f, cy + 3f))
+    drawCircle(color = glovesColor, radius = 3.2f, center = Offset(x + 10f, cy + 3f))
+
+    // Equipped Offhand Shield (left arm)
+    equipment.offhand?.let { shield ->
+        val sc = Color(shield.colorHex)
+        drawRoundRect(color = sc, topLeft = Offset(x - 16f, cy - 5f), size = Size(8f, 13f), cornerRadius = CornerRadius(3f, 3f))
+        drawRoundRect(color = Color(0xFFFDE68A), topLeft = Offset(x - 16f, cy - 5f), size = Size(8f, 13f), cornerRadius = CornerRadius(3f, 3f), style = Stroke(width = 1.4f))
+    }
 
     // Head
-    drawCircle(color = Color(0xFFFDE68A), radius = 6f, center = Offset(x, y - 12f))
+    drawCircle(color = Color(0xFFFDE68A), radius = 6f, center = Offset(x, cy - 12f))
 
     // Distinct Class Headgear (MG strictly wears NO HELM!)
     when (classId) {
         ClassId.DK -> {
-            drawArc(Color(0xFFCBD5E1), 180f, 180f, true, Offset(x - 6.5f, y - 19f), Size(13f, 10f))
-            drawLine(Color(0xFFEF4444), Offset(x, y - 19f), Offset(x, y - 24f), strokeWidth = 2.5f)
+            if (helmColor != null || true) {
+                drawArc(helmColor ?: Color(0xFFCBD5E1), 180f, 180f, true, Offset(x - 6.5f, cy - 19f), Size(13f, 10f))
+                drawLine(Color(0xFFEF4444), Offset(x, cy - 19f), Offset(x, cy - 24f), strokeWidth = 2.5f)
+            }
         }
         ClassId.DW -> drawPath(Path().apply {
-            moveTo(x - 8f, y - 15f)
-            lineTo(x, y - 26f)
-            lineTo(x + 8f, y - 15f)
+            moveTo(x - 8f, cy - 15f)
+            lineTo(x, cy - 26f)
+            lineTo(x + 8f, cy - 15f)
             close()
-        }, color = Color(0xFF2563EB))
+        }, color = helmColor ?: Color(0xFF2563EB))
         ClassId.ELF -> {
-            drawCircle(Color(0xFF34D399), radius = 2.8f, center = Offset(x, y - 18f))
-            drawLine(Color(0xFFFDE047), Offset(x - 5f, y - 16f), Offset(x + 5f, y - 16f), strokeWidth = 1.8f)
+            drawCircle(helmColor ?: Color(0xFF34D399), radius = 2.8f, center = Offset(x, cy - 18f))
+            drawLine(Color(0xFFFDE047), Offset(x - 5f, cy - 16f), Offset(x + 5f, cy - 16f), strokeWidth = 1.8f)
         }
-        ClassId.DL -> drawRect(Color(0xFFFBBF24), topLeft = Offset(x - 6f, y - 20f), size = Size(12f, 4.5f))
+        ClassId.DL -> drawRect(helmColor ?: Color(0xFFFBBF24), topLeft = Offset(x - 6f, cy - 20f), size = Size(12f, 4.5f))
         ClassId.MG -> {
             // Spiky exposed hair (NO HELMET per MU Online canon)
             drawPath(Path().apply {
-                moveTo(x - 6f, y - 15f)
-                lineTo(x - 3f, y - 21f)
-                lineTo(x, y - 17f)
-                lineTo(x + 3f, y - 21f)
-                lineTo(x + 6f, y - 15f)
+                moveTo(x - 6f, cy - 15f)
+                lineTo(x - 3f, cy - 21f)
+                lineTo(x, cy - 17f)
+                lineTo(x + 3f, cy - 21f)
+                lineTo(x + 6f, cy - 15f)
                 close()
             }, color = Color(0xFF4C1D95))
         }
@@ -921,15 +999,15 @@ private fun DrawScope.drawHeroAvatar(
 
     // Distinct Class Weapon
     val wx = x + sin(facingAngle) * 20f
-    val wy = y + cos(facingAngle) * 20f
-    val weaponColor = when (classId) {
+    val wy = cy + cos(facingAngle) * 20f
+    val weaponColor = equipment.weapon?.let { Color(it.colorHex) } ?: when (classId) {
         ClassId.DK -> Color(0xFFE2E8F0)
         ClassId.DW -> Color(0xFF38BDF8)
         ClassId.ELF -> Color(0xFF34D399)
         ClassId.MG -> Color(0xFFC084FC)
         ClassId.DL -> Color(0xFFFBBF24)
     }
-    drawLine(color = weaponColor, start = Offset(x + 4f, y - 1f), end = Offset(wx, wy), strokeWidth = 3.8f, cap = StrokeCap.Round)
+    drawLine(color = weaponColor, start = Offset(x + 4f, cy - 1f), end = Offset(wx, wy), strokeWidth = 3.8f, cap = StrokeCap.Round)
     if (classId == ClassId.DW || classId == ClassId.DL) {
         drawCircle(color = Color(0xFFFDE047), radius = 3.8f, center = Offset(wx, wy))
     }

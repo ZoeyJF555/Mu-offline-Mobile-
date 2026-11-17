@@ -30,7 +30,7 @@ fun InventoryChaosDialog(
     chaosBonus: Int,
     initialTabChaos: Boolean = false,
     onEquipItem: (Item) -> String?,
-    onUnequipSlot: (ItemSlot) -> Unit,
+    onUnequipSlotKey: (EquipSlotKey) -> Unit,
     onUpgradeWithJewel: (String, JewelType) -> String,
     onChaosUpgrade: (String) -> Pair<Boolean, String>,
     onCraftWingsTier: (Int) -> Pair<Boolean, String>,
@@ -41,10 +41,17 @@ fun InventoryChaosDialog(
     var selectedItemId by remember { mutableStateOf<String?>(null) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
 
-    val allEquipmentSlots = listOf(
-        ItemSlot.WEAPON, ItemSlot.OFFHAND, ItemSlot.ARMOR,
-        ItemSlot.HELM, ItemSlot.WINGS, ItemSlot.PENDANT, ItemSlot.PET
-    )
+    val classMeta = MuCatalog.CLASS_CATALOG.getValue(hero.classId)
+    val classGuide = remember(hero.classId) {
+        when (hero.classId) {
+            ClassId.DK -> "Dark Knight / Blade Master: Espadas, Hachas, Escudos, Set completo (Casco, Pechera, Guantes, Botas), Alas S1-S3, Collar, 2 Anillos y Mascotas universales (Ángel, Imp, Uniria)."
+            ClassId.DW -> "Dark Wizard / Grand Master: Bastones mágicos, Escudos ligeros, Set completo (Casco, Pechera, Guantes, Botas), Alas S1-S3, Collar, 2 Anillos y Mascotas universales."
+            ClassId.ELF -> "Fairy Elf / High Elf: Arcos y Ballestas élficas, Set completo (Casco, Pechera, Guantes, Botas), Alas S1-S3, Collar, 2 Anillos y Mascotas universales."
+            ClassId.MG -> "Magic Gladiator / Magic Knight: Espadas híbridas y Bastones, Escudos, Pechera, Guantes, Botas, Alas, Collar, 2 Anillos y Mascotas. NO usa Casco por regla clásica MU."
+            ClassId.DL -> "Dark Lord / Empire Lord: Cetros imperiales, Escudos, Set completo (Casco/Máscara, Pechera, Guantes, Botas), Capas/Alas, Collar, 2 Anillos y Mascotas exclusivas (Cuervo Oscuro y Caballo Oscuro) + universales."
+        }
+    }
+
     val allItems = hero.equipment.allEquipped() + hero.inventory
     val selectedItem = allItems.firstOrNull { it.id == selectedItemId }
     val selectedIsEquipped = selectedItem != null && hero.equipment.allEquipped().any { it.id == selectedItem.id }
@@ -65,8 +72,8 @@ fun InventoryChaosDialog(
             border = BorderStroke(1.dp, MuGold.copy(alpha = 0.55f)),
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .widthIn(max = 760.dp)
-                .fillMaxHeight(0.88f)
+                .widthIn(max = 860.dp)
+                .fillMaxHeight(0.90f)
         ) {
             Column(
                 modifier = Modifier
@@ -80,7 +87,7 @@ fun InventoryChaosDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Mochila y Chaos Machine", style = MaterialTheme.typography.headlineSmall, color = MuAmberBright)
+                        Text("Inventario y Equipo · ${classMeta.titleForTier(hero.evolutionTier)}", style = MaterialTheme.typography.headlineSmall, color = MuAmberBright)
                         Text(
                             text = "${hero.zen} Zen · B:$blessCount S:$soulCount C:$chaosCount L:$lifeCount Cr:$creationCount",
                             style = MaterialTheme.typography.labelMedium,
@@ -104,7 +111,7 @@ fun InventoryChaosDialog(
                             .weight(1f)
                             .testTag("tab_bag")
                     ) {
-                        Text("Equipo y Mochila (${hero.inventory.size}/24)")
+                        Text("Equipo por Raza (11 Slots) y Mochila (${hero.inventory.size}/24)")
                     }
                     Button(
                         onClick = { tabChaos = true },
@@ -145,44 +152,48 @@ fun InventoryChaosDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         item {
-                            Text("Equipo Activo", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
-                        }
-                        items(allEquipmentSlots) { slot ->
-                            val eq = hero.equipment.getSlot(slot)
-                            val blockedHelm = slot == ItemSlot.HELM && !MuCatalog.CLASS_CATALOG.getValue(hero.classId).canEquipHelm
                             Surface(
-                                color = if (eq != null && selectedItemId == eq.id) MuGold.copy(alpha = 0.14f) else MuStoneCard,
+                                color = MuStoneCard,
                                 shape = MaterialTheme.shapes.small,
-                                border = BorderStroke(1.dp, if (eq != null) Color(eq.colorHex).copy(alpha = 0.55f) else MuBorderSlate),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = eq != null) { selectedItemId = eq?.id }
+                                border = BorderStroke(1.dp, Color(classMeta.accentColor).copy(alpha = 0.55f))
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(slot.labelEs, style = MaterialTheme.typography.labelMedium, color = MuTextSecondary, modifier = Modifier.width(86.dp))
-                                    if (eq != null) {
-                                        Text(
-                                            text = "${eq.name} +${eq.plus} (${eq.durability}% dur)",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (eq.durability <= 15) MuCrimson else Color(eq.colorHex),
-                                            modifier = Modifier.weight(1f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        TextButton(onClick = { onUnequipSlot(slot) }) {
-                                            Text("Quitar")
+                                Text(
+                                    text = classGuide,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MuTextPrimary,
+                                    modifier = Modifier.padding(10.dp)
+                                )
+                            }
+                        }
+
+                        item {
+                            Text("Equipamiento Completo (11 Casillas)", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            val rows = listOf(
+                                listOf(EquipSlotKey.HELM, EquipSlotKey.PENDANT, EquipSlotKey.WINGS),
+                                listOf(EquipSlotKey.WEAPON, EquipSlotKey.ARMOR, EquipSlotKey.OFFHAND),
+                                listOf(EquipSlotKey.GLOVES, EquipSlotKey.BOOTS, EquipSlotKey.PET),
+                                listOf(EquipSlotKey.RING1, EquipSlotKey.RING2)
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                rows.forEach { rowKeys ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        rowKeys.forEach { key ->
+                                            val eq = hero.equipment.getSlotKey(key)
+                                            val blockedHelm = key == EquipSlotKey.HELM && !classMeta.canEquipHelm
+                                            PaperdollSlotCard(
+                                                slotKey = key,
+                                                item = eq,
+                                                blockedHelm = blockedHelm,
+                                                selected = eq != null && selectedItemId == eq.id,
+                                                onSelect = { if (eq != null) selectedItemId = eq.id },
+                                                onUnequip = { onUnequipSlotKey(key) },
+                                                modifier = Modifier.weight(1f)
+                                            )
                                         }
-                                    } else {
-                                        Text(
-                                            text = if (blockedHelm) "No disponible para MG" else "Vacío",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MuTextSecondary,
-                                            modifier = Modifier.weight(1f)
-                                        )
                                     }
                                 }
                             }
@@ -219,10 +230,16 @@ fun InventoryChaosDialog(
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = Color(item.colorHex)
                                         )
+                                        val compatOk = (item.classReq == "all" || item.classReq == hero.classId.wire) && !(item.slot == ItemSlot.HELM && !classMeta.canEquipHelm)
+                                        val reqLabel = when {
+                                            item.slot == ItemSlot.HELM && !classMeta.canEquipHelm -> "MG sin casco"
+                                            item.classReq == "all" -> "Todas las razas"
+                                            else -> "Solo ${item.classReq.uppercase()}"
+                                        }
                                         Text(
-                                            text = "${item.slot.labelEs} · ${item.rarity.name} · Valor ${item.valueZen} Zen",
+                                            text = "${item.slot.labelEs} · $reqLabel · ${item.rarity.name} · ${item.valueZen} Zen",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MuTextSecondary
+                                            color = if (compatOk || !canEquip) MuTextSecondary else MuCrimson
                                         )
                                     }
                                     if (canEquip) {
@@ -453,6 +470,84 @@ private fun WingsCraftCard(
                 Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Combinar en Chaos Goblin")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaperdollSlotCard(
+    slotKey: EquipSlotKey,
+    item: Item?,
+    blockedHelm: Boolean,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onUnequip: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = when {
+        blockedHelm -> MuCrimson.copy(alpha = 0.55f)
+        selected && item != null -> MuAmberBright
+        item != null -> Color(item.colorHex).copy(alpha = 0.7f)
+        else -> MuBorderSlate
+    }
+    Surface(
+        color = when {
+            selected && item != null -> MuGold.copy(alpha = 0.16f)
+            blockedHelm -> MuCrimson.copy(alpha = 0.08f)
+            else -> MuStoneCard
+        },
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
+        modifier = modifier
+            .heightIn(min = 68.dp)
+            .clickable(enabled = item != null, onClick = onSelect)
+            .testTag("paperdoll_slot_${slotKey.name.lowercase()}")
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = slotKey.labelEs.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (blockedHelm) MuCrimson else MuTextSecondary
+                )
+                if (item != null) {
+                    Text(
+                        text = "Quitar",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MuSky,
+                        modifier = Modifier.clickable(onClick = onUnequip)
+                    )
+                }
+            }
+            if (item != null) {
+                Text(
+                    text = "${item.name}${if (item.plus > 0) " +${item.plus}" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(item.colorHex),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "ATK ${item.attack} · DEF ${item.defense} · Dur ${item.durability}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (item.durability <= 15) MuCrimson else MuTextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = if (blockedHelm) "Bloqueado (MG)" else "Vacío",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (blockedHelm) MuCrimson else MuTextSecondary
+                )
             }
         }
     }

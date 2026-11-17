@@ -151,6 +151,17 @@ class JsonDataStore(context: Context) {
     fun loadSettings(): MobileHudSettings {
         if (!settingsFile.exists()) return MobileHudSettings()
         val o = runCatching { JSONObject(settingsFile.readText()) }.getOrNull() ?: return MobileHudSettings()
+        val offsetsObj = o.optJSONObject("buttonOffsets")
+        val parsedOffsets = mutableMapOf<String, HudButtonOffset>()
+        offsetsObj?.keys()?.forEach { key ->
+            val bo = offsetsObj.optJSONObject(key)
+            if (bo != null) {
+                parsedOffsets[key] = HudButtonOffset(
+                    dxDp = bo.optDouble("dx", 0.0).toFloat(),
+                    dyDp = bo.optDouble("dy", 0.0).toFloat()
+                )
+            }
+        }
         return MobileHudSettings(
             sfxVolume = o.optDouble("sfxVolume", 0.8).toFloat().coerceIn(0f, 1f),
             musicVolume = o.optDouble("musicVolume", 0.45).toFloat().coerceIn(0f, 1f),
@@ -159,12 +170,21 @@ class JsonDataStore(context: Context) {
             animationsEnabled = o.optBoolean("animationsEnabled", true),
             hudScale = o.optDouble("hudScale", 1.0).toFloat().coerceIn(0.75f, 1.35f),
             hudBottomPaddingDp = o.optDouble("hudBottomPaddingDp", 6.0).toFloat().coerceIn(0f, 40f),
-            manifestUrl = o.optString("manifestUrl", "")
+            manifestUrl = o.optString("manifestUrl", ""),
+            buttonOffsets = parsedOffsets
         )
     }
 
     @Synchronized
     fun saveSettings(s: MobileHudSettings) {
+        val offsetsJson = JSONObject().apply {
+            s.buttonOffsets.forEach { (k, v) ->
+                put(k, JSONObject().apply {
+                    put("dx", v.dxDp.toDouble())
+                    put("dy", v.dyDp.toDouble())
+                })
+            }
+        }
         val root = JSONObject().apply {
             put("sfxVolume", s.sfxVolume.toDouble())
             put("musicVolume", s.musicVolume.toDouble())
@@ -174,6 +194,7 @@ class JsonDataStore(context: Context) {
             put("hudScale", s.hudScale.toDouble())
             put("hudBottomPaddingDp", s.hudBottomPaddingDp.toDouble())
             put("manifestUrl", s.manifestUrl)
+            put("buttonOffsets", offsetsJson)
         }
         settingsFile.writeText(root.toString(2))
     }
@@ -365,8 +386,12 @@ class JsonDataStore(context: Context) {
                 hero.equipment.offhand?.let { put("offhand", encodeItem(it)) }
                 hero.equipment.armor?.let { put("armor", encodeItem(it)) }
                 hero.equipment.helm?.let { put("helm", encodeItem(it)) }
+                hero.equipment.gloves?.let { put("gloves", encodeItem(it)) }
+                hero.equipment.boots?.let { put("boots", encodeItem(it)) }
                 hero.equipment.wings?.let { put("wings", encodeItem(it)) }
                 hero.equipment.pendant?.let { put("pendant", encodeItem(it)) }
+                hero.equipment.ring1?.let { put("ring1", encodeItem(it)) }
+                hero.equipment.ring2?.let { put("ring2", encodeItem(it)) }
                 hero.equipment.pet?.let { put("pet", encodeItem(it)) }
             })
             put("inventory", JSONArray().apply { hero.inventory.forEach { put(encodeItem(it)) } })
@@ -408,8 +433,12 @@ class JsonDataStore(context: Context) {
                     offhand = eqObj.optJSONObject("offhand")?.let(::decodeItem),
                     armor = eqObj.optJSONObject("armor")?.let(::decodeItem),
                     helm = eqObj.optJSONObject("helm")?.let(::decodeItem),
+                    gloves = eqObj.optJSONObject("gloves")?.let(::decodeItem),
+                    boots = eqObj.optJSONObject("boots")?.let(::decodeItem),
                     wings = eqObj.optJSONObject("wings")?.let(::decodeItem),
                     pendant = eqObj.optJSONObject("pendant")?.let(::decodeItem),
+                    ring1 = eqObj.optJSONObject("ring1")?.let(::decodeItem),
+                    ring2 = eqObj.optJSONObject("ring2")?.let(::decodeItem),
                     pet = eqObj.optJSONObject("pet")?.let(::decodeItem)
                 ),
                 inventory = (0 until invArr.length()).mapNotNull { invArr.optJSONObject(it)?.let(::decodeItem) },

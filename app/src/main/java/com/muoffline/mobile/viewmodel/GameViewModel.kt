@@ -115,6 +115,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _chatMessages = MutableStateFlow<List<LanChatMessage>>(emptyList())
     val chatMessages = _chatMessages.asStateFlow()
 
+    private val _isEditingHudLayout = MutableStateFlow(false)
+    val isEditingHudLayout = _isEditingHudLayout.asStateFlow()
+
     @Volatile
     var joystickX: Float = 0f
     @Volatile
@@ -318,6 +321,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         soundFx.sfxVolume = next.sfxVolume
         soundFx.musicVolume = next.musicVolume
         viewModelScope.launch { repo.saveSettings(next) }
+    }
+
+    fun setEditingHudLayout(editing: Boolean) {
+        _isEditingHudLayout.value = editing
+    }
+
+    fun updateHudButtonOffset(buttonId: String, dxDp: Float, dyDp: Float) {
+        updateHudSettings { current ->
+            val prev = current.buttonOffsets[buttonId] ?: HudButtonOffset()
+            val updated = HudButtonOffset(
+                dxDp = (prev.dxDp + dxDp).coerceIn(-360f, 360f),
+                dyDp = (prev.dyDp + dyDp).coerceIn(-240f, 240f)
+            )
+            current.copy(buttonOffsets = current.buttonOffsets + (buttonId to updated))
+        }
+    }
+
+    fun resetHudButtonOffsets() {
+        updateHudSettings { it.copy(buttonOffsets = emptyMap()) }
     }
 
     fun toggleAutoHunt() {
@@ -641,11 +663,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (item.classReq != "all" && item.classReq != hero.classId.wire) {
             return "Este ítem es exclusivo de clase ${item.classReq.uppercase()}."
         }
-        val currentEq = hero.equipment.getSlot(item.slot)
+        val targetKey = when (item.slot) {
+            ItemSlot.WEAPON -> EquipSlotKey.WEAPON
+            ItemSlot.OFFHAND -> EquipSlotKey.OFFHAND
+            ItemSlot.ARMOR -> EquipSlotKey.ARMOR
+            ItemSlot.HELM -> EquipSlotKey.HELM
+            ItemSlot.GLOVES -> EquipSlotKey.GLOVES
+            ItemSlot.BOOTS -> EquipSlotKey.BOOTS
+            ItemSlot.WINGS -> EquipSlotKey.WINGS
+            ItemSlot.PENDANT -> EquipSlotKey.PENDANT
+            ItemSlot.RING -> if (hero.equipment.ring1 == null) EquipSlotKey.RING1 else EquipSlotKey.RING2
+            ItemSlot.PET -> EquipSlotKey.PET
+            else -> return null
+        }
+        val currentEq = hero.equipment.getSlotKey(targetKey)
         val nextInv = hero.inventory.filterNot { it.id == item.id }.toMutableList()
         if (currentEq != null) nextInv.add(currentEq)
         val updated = hero.copy(
-            equipment = hero.equipment.withSlot(item.slot, item),
+            equipment = hero.equipment.withSlotKey(targetKey, item),
             inventory = nextInv
         )
         val derived = MuCatalog.computeDerivedHeroStats(updated)
@@ -658,14 +693,33 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun unequipSlot(slot: ItemSlot) {
         val hero = _activeHero.value ?: return
-        val eq = hero.equipment.getSlot(slot) ?: return
+        val key = when (slot) {
+            ItemSlot.RING -> if (hero.equipment.ring2 != null) EquipSlotKey.RING2 else EquipSlotKey.RING1
+            ItemSlot.WEAPON -> EquipSlotKey.WEAPON
+            ItemSlot.OFFHAND -> EquipSlotKey.OFFHAND
+            ItemSlot.ARMOR -> EquipSlotKey.ARMOR
+            ItemSlot.HELM -> EquipSlotKey.HELM
+            ItemSlot.GLOVES -> EquipSlotKey.GLOVES
+            ItemSlot.BOOTS -> EquipSlotKey.BOOTS
+            ItemSlot.WINGS -> EquipSlotKey.WINGS
+            ItemSlot.PENDANT -> EquipSlotKey.PENDANT
+            ItemSlot.PET -> EquipSlotKey.PET
+            else -> return
+        }
+        unequipSlotKey(key)
+    }
+
+    fun unequipSlotKey(key: EquipSlotKey) {
+        val hero = _activeHero.value ?: return
+        val eq = hero.equipment.getSlotKey(key) ?: return
         if (hero.inventory.size >= 24) return
         val updated = hero.copy(
-            equipment = hero.equipment.withSlot(slot, null),
+            equipment = hero.equipment.withSlotKey(key, null),
             inventory = hero.inventory + eq
         )
         val derived = MuCatalog.computeDerivedHeroStats(updated)
         val finalHero = updated.copy(maxHp = derived.maxHp, maxMp = derived.maxMp)
+        soundFx.playUiClick()
         _activeHero.value = finalHero
         saveHeroAsync(finalHero)
     }
@@ -1065,6 +1119,31 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _tradeSession.value = null
     }
 
+    fun openTradeMenu() {
+        val hero = _activeHero.value ?: return
+        val peers = _lanPlayers.value.filter { it.id != hero.id }
+        if (connectedRoom.value != null && peers.isNotEmpty()) {
+            val targetPeer = peers.firstOrNull { it.mapId == hero.mapId } ?: peers.first()
+            lanManager.sendTradeRequest(targetPeer.id)
+            pushFloatingText(hero.x, hero.y - 30f, "Solicitud de Trade enviada a ${targetPeer.name}", 0xFF38BDF8)
+            return
+        }
+        val offerCandidates = MuCatalog.DROP_ITEM_POOL.filter {
+            it.slot in setOf(ItemSlot.RING, ItemSlot.PENDANT, ItemSlot.GLOVES, ItemSlot.BOOTS, ItemSlot.PET, ItemSlot.JEWEL, ItemSlot.OFFHAND) &&
+                (it.classReq == "all" || it.classReq == hero.classId.wire)
+        }
+        val picked = offerCandidates.shuffled().take(2).map { it.copy(id = MuCatalog.newUid("tr-npc"), quantity = 1) }
+        soundFx.playUiClick()
+        _tradeSession.value = TradeSession(
+            tradeId = MuCatalog.newUid("offline-tr"),
+            partnerId = "offline-trader",
+            partnerName = "Comerciante P2P Lorencia",
+            partnerItems = picked,
+            partnerZen = 1200,
+            partnerConfirmed = true
+        )
+    }
+
     fun acceptIncomingTrade() {
         val inc = _incomingTrade.value ?: return
         lanManager.sendTradeAccept(inc.tradeId)
@@ -1078,19 +1157,43 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateTradeOffer(items: List<Item>, zen: Int) {
         val tr = _tradeSession.value ?: return
+        if (tr.tradeId.startsWith("offline-tr-")) {
+            _tradeSession.value = tr.copy(myItems = items, myZen = zen, myConfirmed = false, partnerConfirmed = true)
+            return
+        }
         _tradeSession.value = tr.copy(myItems = items, myZen = zen, myConfirmed = false, partnerConfirmed = false)
         lanManager.sendTradeUpdate(tr.tradeId, items, zen)
     }
 
     fun confirmTrade() {
         val tr = _tradeSession.value ?: return
+        if (tr.tradeId.startsWith("offline-tr-")) {
+            val hero = _activeHero.value ?: return
+            if (hero.zen < tr.myZen) return
+            val givenIds = tr.myItems.map { it.id }.toSet()
+            var next = hero.copy(
+                zen = max(0, hero.zen - tr.myZen + tr.partnerZen),
+                inventory = hero.inventory.filterNot { it.id in givenIds }
+            )
+            for (rec in tr.partnerItems) {
+                next = addItemToHero(next, rec.copy(id = MuCatalog.newUid("tr")))
+            }
+            _activeHero.value = next
+            saveHeroAsync(next)
+            soundFx.playChaosSuccess()
+            _tradeSession.value = null
+            pushFloatingText(next.x, next.y - 30f, "¡Intercambio Completado!", 0xFF34D399, isCrit = true)
+            return
+        }
         _tradeSession.value = tr.copy(myConfirmed = true)
         lanManager.sendTradeConfirm(tr.tradeId)
     }
 
     fun cancelTrade() {
         val tr = _tradeSession.value ?: return
-        lanManager.sendTradeCancel(tr.tradeId)
+        if (!tr.tradeId.startsWith("offline-tr-")) {
+            lanManager.sendTradeCancel(tr.tradeId)
+        }
         _tradeSession.value = null
     }
 

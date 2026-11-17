@@ -279,14 +279,37 @@ object MuCatalog {
         Item("pool-horse", "dark-horse", "Dark Horse (Mascota DL)", ItemSlot.PET, ItemRarity.MYTHIC, plus = 1, defense = 32, hpBonus = 150, speedBonus = 24, classReq = "dl", colorHex = 0xFFF59E0B, valueZen = 22000),
         Item("pool-pshield", "plate-shield", "Dragon Slayer Shield", ItemSlot.OFFHAND, ItemRarity.NORMAL, plus = 2, defense = 24, hpBonus = 45, classReq = "all", colorHex = 0xFF94A3B8, valueZen = 3900),
         Item("pool-pendant", "pendant-lightning", "Pendant of Lighting", ItemSlot.PENDANT, ItemRarity.ANCIENT, attack = 16, magic = 16, speedBonus = 8, classReq = "all", colorHex = 0xFF38BDF8, valueZen = 8200),
+        Item("pool-gloves-dk", "dragon-gloves", "Dragon Gloves", ItemSlot.GLOVES, ItemRarity.NORMAL, plus = 1, defense = 14, speedBonus = 8, hpBonus = 30, classReq = "dk", colorHex = 0xFFEF4444, valueZen = 3400),
+        Item("pool-boots-dk", "dragon-boots", "Dragon Boots", ItemSlot.BOOTS, ItemRarity.NORMAL, plus = 1, defense = 15, speedBonus = 14, hpBonus = 35, classReq = "dk", colorHex = 0xFFEF4444, valueZen = 3600),
+        Item("pool-gloves-dw", "gs-gloves", "Grand Soul Gloves", ItemSlot.GLOVES, ItemRarity.NORMAL, plus = 1, defense = 12, magic = 8, speedBonus = 8, classReq = "dw", colorHex = 0xFF3B82F6, valueZen = 3300),
+        Item("pool-boots-dw", "gs-boots", "Grand Soul Boots", ItemSlot.BOOTS, ItemRarity.NORMAL, plus = 1, defense = 13, speedBonus = 14, hpBonus = 25, classReq = "dw", colorHex = 0xFF3B82F6, valueZen = 3500),
+        Item("pool-gloves-elf", "guardian-gloves", "Guardian Gloves", ItemSlot.GLOVES, ItemRarity.NORMAL, plus = 1, defense = 12, speedBonus = 12, classReq = "elf", colorHex = 0xFF10B981, valueZen = 3300),
+        Item("pool-boots-elf", "guardian-boots", "Guardian Boots", ItemSlot.BOOTS, ItemRarity.NORMAL, plus = 1, defense = 13, speedBonus = 16, classReq = "elf", colorHex = 0xFF10B981, valueZen = 3500),
+        Item("pool-gloves-mg", "stormcrow-gloves", "Storm Crow Gloves", ItemSlot.GLOVES, ItemRarity.EXCELLENT, plus = 2, attack = 6, defense = 16, speedBonus = 10, classReq = "mg", colorHex = 0xFFA855F7, valueZen = 4800),
+        Item("pool-boots-mg", "stormcrow-boots", "Storm Crow Boots", ItemSlot.BOOTS, ItemRarity.EXCELLENT, plus = 2, defense = 17, speedBonus = 16, hpBonus = 45, classReq = "mg", colorHex = 0xFFA855F7, valueZen = 4900),
+        Item("pool-gloves-dl", "lightplate-gloves", "Dark Master Gloves", ItemSlot.GLOVES, ItemRarity.EXCELLENT, plus = 2, defense = 17, speedBonus = 10, classReq = "dl", colorHex = 0xFFF59E0B, valueZen = 5100),
+        Item("pool-boots-dl", "lightplate-boots", "Dark Master Boots", ItemSlot.BOOTS, ItemRarity.EXCELLENT, plus = 2, defense = 18, speedBonus = 16, hpBonus = 50, classReq = "dl", colorHex = 0xFFF59E0B, valueZen = 5200),
+        Item("pool-helm-dw", "gs-helm", "Grand Soul Helm", ItemSlot.HELM, ItemRarity.NORMAL, plus = 1, defense = 16, magic = 6, hpBonus = 40, classReq = "dw", colorHex = 0xFF3B82F6, valueZen = 4000),
+        Item("pool-helm-elf", "guardian-helm", "Guardian Helm", ItemSlot.HELM, ItemRarity.NORMAL, plus = 1, defense = 17, speedBonus = 6, hpBonus = 45, classReq = "elf", colorHex = 0xFF10B981, valueZen = 4100),
+        Item("pool-helm-dl", "lightplate-helm", "Dark Master Mask", ItemSlot.HELM, ItemRarity.EXCELLENT, plus = 2, defense = 22, hpBonus = 65, classReq = "dl", colorHex = 0xFFF59E0B, valueZen = 5400),
+        Item("pool-ring-ice", "ring-of-ice", "Ring of Ice", ItemSlot.RING, ItemRarity.EXCELLENT, plus = 1, defense = 12, hpBonus = 60, classReq = "all", colorHex = 0xFF38BDF8, valueZen = 5800),
+        Item("pool-ring-poison", "ring-of-poison", "Ring of Poison", ItemSlot.RING, ItemRarity.EXCELLENT, plus = 1, attack = 10, magic = 10, hpBonus = 55, classReq = "all", colorHex = 0xFF34D399, valueZen = 5800),
+        Item("pool-ring-fire", "ring-of-fire", "Ring of Fire", ItemSlot.RING, ItemRarity.ANCIENT, plus = 2, attack = 16, defense = 10, hpBonus = 75, classReq = "all", colorHex = 0xFFF97316, valueZen = 7800),
+        Item("pool-pet-angel", "guardian-angel", "Guardian Angel (Pet)", ItemSlot.PET, ItemRarity.EXCELLENT, defense = 22, hpBonus = 120, classReq = "all", colorHex = 0xFFFDE68A, valueZen = 6500),
+        Item("pool-pet-imp", "satan-imp", "Imp Demon (Pet)", ItemSlot.PET, ItemRarity.EXCELLENT, attack = 24, magic = 24, classReq = "all", colorHex = 0xFFEF4444, valueZen = 6500),
+        Item("pool-pet-uniria", "horn-of-uniria", "Horn of Uniria (Montura)", ItemSlot.PET, ItemRarity.ANCIENT, defense = 18, speedBonus = 26, hpBonus = 80, classReq = "all", colorHex = 0xFF93C5FD, valueZen = 9500),
         Item("pool-wings-s1", "wings-satan-s1", "Wings of Satan (S1)", ItemSlot.WINGS, ItemRarity.NORMAL, plus = 1, attack = 20, magic = 20, defense = 16, speedBonus = 14, wingsTier = 1, classReq = "all", colorHex = 0xFFA855F7, valueZen = 16000)
     )
 
     val SHOP_TEMPLATES: List<Item> = DROP_ITEM_POOL.filter {
         it.templateId in setOf(
-            "hp-potion", "mp-potion", "blade-of-archangel", "dragon-armor",
-            "viper-staff", "grand-soul-armor", "viper-bow", "guardian-armor",
-            "dark-reign-blade", "soleil-scepter", "dark-raven", "plate-shield", "rena-talisman"
+            "hp-potion", "mp-potion", "blade-of-archangel", "dragon-armor", "dragon-helm", "dragon-gloves", "dragon-boots",
+            "viper-staff", "grand-soul-armor", "gs-helm", "gs-gloves", "gs-boots",
+            "viper-bow", "guardian-armor", "guardian-helm", "guardian-gloves", "guardian-boots",
+            "dark-reign-blade", "stormcrow-gloves", "stormcrow-boots",
+            "soleil-scepter", "lightplate-helm", "lightplate-gloves", "lightplate-boots",
+            "dark-raven", "guardian-angel", "satan-imp", "horn-of-uniria",
+            "plate-shield", "pendant-lightning", "ring-of-ice", "ring-of-poison", "rena-talisman"
         )
     }
 

@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +56,7 @@ fun GameHudOverlay(
     autoHunt: Boolean,
     muted: Boolean,
     isLandscapeLocked: Boolean,
+    isEditingHudLayout: Boolean,
     activeModsCount: Int,
     skillCooldowns: Map<String, Long>,
     lanConnectedRoom: String?,
@@ -66,6 +68,7 @@ fun GameHudOverlay(
     onOpenCharacter: () -> Unit,
     onChangeMap: (MapId) -> Unit,
     onOpenInventory: () -> Unit,
+    onOpenTrade: () -> Unit,
     onOpenMods: () -> Unit,
     onOpenLan: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -80,7 +83,10 @@ fun GameHudOverlay(
     onTalkNpc: (MapNpcDef) -> Unit,
     onAcceptTrade: () -> Unit,
     onDeclineTrade: () -> Unit,
-    onSendChat: (String) -> Unit
+    onSendChat: (String) -> Unit,
+    onUpdateButtonOffset: (String, Float, Float) -> Unit,
+    onSaveHudLayout: () -> Unit,
+    onResetHudLayout: () -> Unit
 ) {
     var mapMenuExpanded by remember { mutableStateOf(false) }
     var chatOpen by remember { mutableStateOf(false) }
@@ -106,6 +112,27 @@ fun GameHudOverlay(
     }
     val currentMapMeta = mapCatalog[hero.mapId] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(hero.mapId)
     val scale = hudSettings.hudScale.coerceIn(0.75f, 1.35f)
+    val density = LocalDensity.current.density
+
+    val draggableMod: (String) -> Modifier = { btnId ->
+        val off = hudSettings.buttonOffsets[btnId] ?: HudButtonOffset()
+        Modifier
+            .offset { IntOffset((off.dxDp * density).roundToInt(), (off.dyDp * density).roundToInt()) }
+            .then(
+                if (isEditingHudLayout) {
+                    Modifier
+                        .border(2.dp, MuAmberBright, RoundedCornerShape(14.dp))
+                        .pointerInput(btnId, isEditingHudLayout) {
+                            detectDragGestures { change, drag ->
+                                change.consume()
+                                onUpdateButtonOffset(btnId, drag.x / density, drag.y / density)
+                            }
+                        }
+                } else {
+                    Modifier
+                }
+            )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Screen brightness adjustment overlay
@@ -279,7 +306,7 @@ fun GameHudOverlay(
                                 .clip(RoundedCornerShape(2.dp))
                         )
 
-                        // Scrollable labeled action pills (never crushed on narrow screens)
+                        // Scrollable labeled action pills (Inventory & Trade are standalone HUD buttons below!)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -288,7 +315,6 @@ fun GameHudOverlay(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             HudChipAction(Icons.Rounded.Person, "PJ", Color(MuCatalog.CLASS_CATALOG.getValue(hero.classId).accentColor), "hud_pj_chip", onOpenCharacter)
-                            HudChipAction(Icons.Rounded.Backpack, "Mochila", MuAmberBright, "hud_inventory_button", onOpenInventory)
                             HudChipAction(Icons.Rounded.Extension, "Mods($activeModsCount)", MuGold, "hud_mods_button", onOpenMods)
                             HudChipAction(
                                 Icons.Rounded.Wifi,
@@ -325,6 +351,44 @@ fun GameHudOverlay(
                                 "hud_exit_button",
                                 onExitToTitle
                             )
+                        }
+                    }
+                }
+
+                if (isEditingHudLayout) {
+                    Surface(
+                        color = Color(0xFF2D1906).copy(alpha = 0.96f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.5.dp, MuAmberBright),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Rounded.OpenWith, contentDescription = null, tint = MuAmberBright, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = "Modo Acomodo: arrastra cada botón táctil, Inventario y Trade",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MuAmberBright,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = onResetHudLayout,
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.testTag("hud_layout_reset_banner_btn")
+                            ) {
+                                Text("Centrar", fontSize = 12.sp, color = MuSky)
+                            }
+                            Button(
+                                onClick = onSaveHudLayout,
+                                colors = ButtonDefaults.buttonColors(containerColor = MuEmerald, contentColor = Color(0xFF022016)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.testTag("hud_layout_save_banner_btn")
+                            ) {
+                                Text("Guardar", fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -514,8 +578,8 @@ fun GameHudOverlay(
                             color = if (autoHunt) MuEmerald else MuStoneCard.copy(alpha = 0.92f),
                             shape = RoundedCornerShape(50),
                             border = BorderStroke(1.dp, if (autoHunt) Color(0xFFA7F3D0) else MuBorderSlate),
-                            modifier = Modifier
-                                .clickable(onClick = onToggleAutoHunt)
+                            modifier = draggableMod("mu_helper")
+                                .then(if (!isEditingHudLayout) Modifier.clickable(onClick = onToggleAutoHunt) else Modifier)
                                 .testTag("mu_helper_toggle")
                         ) {
                             Row(
@@ -537,7 +601,13 @@ fun GameHudOverlay(
                             }
                         }
 
-                        VirtualJoystick(sizeDp = (114f * scale).roundToInt(), onMove = onJoystickMove)
+                        Box(modifier = draggableMod("joystick")) {
+                            VirtualJoystick(
+                                sizeDp = (114f * scale).roundToInt(),
+                                enabled = !isEditingHudLayout,
+                                onMove = onJoystickMove
+                            )
+                        }
                     }
 
                     if (!compactWidth) {
@@ -553,12 +623,35 @@ fun GameHudOverlay(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Standalone Inventario, Trade & HP/MP Potions row
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            PotionCircleButton("HP", hpQty, MuCrimson, "potion_hp_button") { onUsePotion(PotionType.HP) }
-                            PotionCircleButton("MP", mpQty, MuSky, "potion_mp_button") { onUsePotion(PotionType.MP) }
+                            StandaloneHudButton(
+                                icon = Icons.Rounded.SwapHoriz,
+                                label = "Trade",
+                                accent = MuSky,
+                                tag = "hud_trade_button",
+                                modifier = draggableMod("trade"),
+                                enabled = !isEditingHudLayout,
+                                onClick = onOpenTrade
+                            )
+                            StandaloneHudButton(
+                                icon = Icons.Rounded.Backpack,
+                                label = "Inv ${hero.inventory.size}/24",
+                                accent = MuAmberBright,
+                                tag = "hud_inventory_button",
+                                modifier = draggableMod("inventory"),
+                                enabled = !isEditingHudLayout,
+                                onClick = onOpenInventory
+                            )
+                            Box(modifier = draggableMod("pot_hp")) {
+                                PotionCircleButton("HP", hpQty, MuCrimson, "potion_hp_button", enabled = !isEditingHudLayout) { onUsePotion(PotionType.HP) }
+                            }
+                            Box(modifier = draggableMod("pot_mp")) {
+                                PotionCircleButton("MP", mpQty, MuSky, "potion_mp_button", enabled = !isEditingHudLayout) { onUsePotion(PotionType.MP) }
+                            }
                         }
 
                         Row(
@@ -575,9 +668,9 @@ fun GameHudOverlay(
                                     color = if (onCd) MuObsidian.copy(alpha = 0.85f) else skillColor.copy(alpha = 0.25f),
                                     shape = CircleShape,
                                     border = BorderStroke(1.5.dp, if (onCd) MuBorderSlate else skillColor),
-                                    modifier = Modifier
+                                    modifier = draggableMod("skill_$idx")
                                         .size(btnSize)
-                                        .clickable(enabled = !onCd) { onCastSkill(sk.id) }
+                                        .then(if (!isEditingHudLayout) Modifier.clickable(enabled = !onCd) { onCastSkill(sk.id) } else Modifier)
                                         .testTag("skill_button_$idx")
                                 ) {
                                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(3.dp)) {
@@ -604,9 +697,9 @@ fun GameHudOverlay(
                                 shape = CircleShape,
                                 border = BorderStroke(2.dp, Color(0xFFFDE68A)),
                                 shadowElevation = 6.dp,
-                                modifier = Modifier
+                                modifier = draggableMod("attack")
                                     .size((64f * scale).roundToInt().dp)
-                                    .clickable { onCastSkill(null) }
+                                    .then(if (!isEditingHudLayout) Modifier.clickable { onCastSkill(null) } else Modifier)
                                     .testTag("attack_button")
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -622,6 +715,37 @@ fun GameHudOverlay(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StandaloneHudButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    accent: Color,
+    tag: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = MuObsidian.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.5.dp, accent.copy(alpha = 0.85f)),
+        shadowElevation = 4.dp,
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .testTag(tag)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = label, tint = accent, modifier = Modifier.size(19.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MuTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -711,7 +835,7 @@ private fun HudChipAction(
 }
 
 @Composable
-private fun VirtualJoystick(sizeDp: Int, onMove: (Float, Float) -> Unit) {
+private fun VirtualJoystick(sizeDp: Int, enabled: Boolean = true, onMove: (Float, Float) -> Unit) {
     var knobOffset by remember { mutableStateOf(Offset.Zero) }
     val maxRadiusPx = 92f
 
@@ -721,7 +845,11 @@ private fun VirtualJoystick(sizeDp: Int, onMove: (Float, Float) -> Unit) {
             .clip(CircleShape)
             .background(MuObsidian.copy(alpha = 0.52f))
             .border(1.5.dp, MuGold.copy(alpha = 0.42f), CircleShape)
-            .pointerInput(Unit) {
+            .pointerInput(enabled) {
+                if (!enabled) {
+                    knobOffset = Offset.Zero
+                    return@pointerInput
+                }
                 detectDragGestures(
                     onDragEnd = {
                         knobOffset = Offset.Zero
@@ -764,6 +892,7 @@ private fun PotionCircleButton(
     count: Int,
     color: Color,
     tag: String,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Surface(
@@ -772,7 +901,7 @@ private fun PotionCircleButton(
         border = BorderStroke(1.5.dp, if (count > 0) color else MuBorderSlate),
         modifier = Modifier
             .size(46.dp)
-            .clickable(enabled = count > 0, onClick = onClick)
+            .clickable(enabled = enabled && count > 0, onClick = onClick)
             .testTag(tag)
     ) {
         Column(

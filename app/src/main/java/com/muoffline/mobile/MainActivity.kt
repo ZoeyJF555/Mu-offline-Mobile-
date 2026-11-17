@@ -1,5 +1,6 @@
 package com.muoffline.mobile
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         enableEdgeToEdge()
         setContent {
             MuOfflineTheme {
@@ -193,6 +195,9 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
     if (showSettingsDialog) {
         SettingsDialog(
             settings = hudSettings,
+            canEditHudLayout = activeHero != null,
+            onStartHudLayoutEdit = { viewModel.setEditingHudLayout(true) },
+            onResetHudLayout = { viewModel.resetHudButtonOffsets() },
             onUpdateSettings = { transform -> viewModel.updateHudSettings(transform) },
             onDismiss = { showSettingsDialog = false }
         )

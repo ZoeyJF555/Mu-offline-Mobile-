@@ -44,10 +44,13 @@ enum class MapId(val wire: String) {
 enum class ItemSlot(val wire: String, val labelEs: String) {
     WEAPON("weapon", "Arma"),
     OFFHAND("offhand", "Escudo"),
-    ARMOR("armor", "Armadura"),
+    ARMOR("armor", "Pechera"),
     HELM("helm", "Casco"),
+    GLOVES("gloves", "Guantes"),
+    BOOTS("boots", "Botas"),
     WINGS("wings", "Alas"),
-    PENDANT("pendant", "Colgante"),
+    PENDANT("pendant", "Collar"),
+    RING("ring", "Anillo"),
     PET("pet", "Mascota"),
     JEWEL("jewel", "Joya"),
     POTION("potion", "Poción"),
@@ -122,26 +125,75 @@ data class Item(
     val durability: Int = 100
 )
 
+enum class EquipSlotKey(val labelEs: String, val itemSlot: ItemSlot) {
+    HELM("Casco", ItemSlot.HELM),
+    WINGS("Alas", ItemSlot.WINGS),
+    WEAPON("Arma", ItemSlot.WEAPON),
+    ARMOR("Pechera", ItemSlot.ARMOR),
+    OFFHAND("Escudo", ItemSlot.OFFHAND),
+    GLOVES("Guantes", ItemSlot.GLOVES),
+    BOOTS("Botas", ItemSlot.BOOTS),
+    PENDANT("Collar", ItemSlot.PENDANT),
+    RING1("Anillo 1", ItemSlot.RING),
+    RING2("Anillo 2", ItemSlot.RING),
+    PET("Mascota", ItemSlot.PET)
+}
+
 data class EquipSlots(
     val weapon: Item? = null,
     val offhand: Item? = null,
     val armor: Item? = null,
     val helm: Item? = null,
+    val gloves: Item? = null,
+    val boots: Item? = null,
     val wings: Item? = null,
     val pendant: Item? = null,
+    val ring1: Item? = null,
+    val ring2: Item? = null,
     val pet: Item? = null
 ) {
-    fun allEquipped(): List<Item> = listOfNotNull(weapon, offhand, armor, helm, wings, pendant, pet)
+    fun allEquipped(): List<Item> = listOfNotNull(weapon, offhand, armor, helm, gloves, boots, wings, pendant, ring1, ring2, pet)
 
     fun getSlot(slot: ItemSlot): Item? = when (slot) {
         ItemSlot.WEAPON -> weapon
         ItemSlot.OFFHAND -> offhand
         ItemSlot.ARMOR -> armor
         ItemSlot.HELM -> helm
+        ItemSlot.GLOVES -> gloves
+        ItemSlot.BOOTS -> boots
         ItemSlot.WINGS -> wings
         ItemSlot.PENDANT -> pendant
+        ItemSlot.RING -> ring1 ?: ring2
         ItemSlot.PET -> pet
         else -> null
+    }
+
+    fun getSlotKey(key: EquipSlotKey): Item? = when (key) {
+        EquipSlotKey.WEAPON -> weapon
+        EquipSlotKey.OFFHAND -> offhand
+        EquipSlotKey.ARMOR -> armor
+        EquipSlotKey.HELM -> helm
+        EquipSlotKey.GLOVES -> gloves
+        EquipSlotKey.BOOTS -> boots
+        EquipSlotKey.WINGS -> wings
+        EquipSlotKey.PENDANT -> pendant
+        EquipSlotKey.RING1 -> ring1
+        EquipSlotKey.RING2 -> ring2
+        EquipSlotKey.PET -> pet
+    }
+
+    fun withSlotKey(key: EquipSlotKey, item: Item?): EquipSlots = when (key) {
+        EquipSlotKey.WEAPON -> copy(weapon = item)
+        EquipSlotKey.OFFHAND -> copy(offhand = item)
+        EquipSlotKey.ARMOR -> copy(armor = item)
+        EquipSlotKey.HELM -> copy(helm = item)
+        EquipSlotKey.GLOVES -> copy(gloves = item)
+        EquipSlotKey.BOOTS -> copy(boots = item)
+        EquipSlotKey.WINGS -> copy(wings = item)
+        EquipSlotKey.PENDANT -> copy(pendant = item)
+        EquipSlotKey.RING1 -> copy(ring1 = item)
+        EquipSlotKey.RING2 -> copy(ring2 = item)
+        EquipSlotKey.PET -> copy(pet = item)
     }
 
     fun withSlot(slot: ItemSlot, item: Item?): EquipSlots = when (slot) {
@@ -149,8 +201,11 @@ data class EquipSlots(
         ItemSlot.OFFHAND -> copy(offhand = item)
         ItemSlot.ARMOR -> copy(armor = item)
         ItemSlot.HELM -> copy(helm = item)
+        ItemSlot.GLOVES -> copy(gloves = item)
+        ItemSlot.BOOTS -> copy(boots = item)
         ItemSlot.WINGS -> copy(wings = item)
         ItemSlot.PENDANT -> copy(pendant = item)
+        ItemSlot.RING -> if (ring1 == null || item == null) copy(ring1 = item) else copy(ring2 = item)
         ItemSlot.PET -> copy(pet = item)
         else -> this
     }
@@ -160,8 +215,12 @@ data class EquipSlots(
         offhand = offhand?.let(transform),
         armor = armor?.let(transform),
         helm = helm?.let(transform),
+        gloves = gloves?.let(transform),
+        boots = boots?.let(transform),
         wings = wings?.let(transform),
         pendant = pendant?.let(transform),
+        ring1 = ring1?.let(transform),
+        ring2 = ring2?.let(transform),
         pet = pet?.let(transform)
     )
 }
@@ -404,6 +463,11 @@ data class ActiveModRates(
     val resetLevel: Int = 400
 )
 
+data class HudButtonOffset(
+    val dxDp: Float = 0f,
+    val dyDp: Float = 0f
+)
+
 data class MobileHudSettings(
     val sfxVolume: Float = 0.8f,
     val musicVolume: Float = 0.45f,
@@ -412,7 +476,8 @@ data class MobileHudSettings(
     val animationsEnabled: Boolean = true,
     val hudScale: Float = 1.0f,
     val hudBottomPaddingDp: Float = 6f,
-    val manifestUrl: String = ""
+    val manifestUrl: String = "",
+    val buttonOffsets: Map<String, HudButtonOffset> = emptyMap()
 )
 
 data class ManifestInfo(

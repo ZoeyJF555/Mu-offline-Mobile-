@@ -5,8 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Whatshot
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,10 +23,13 @@ import kotlin.math.roundToInt
 
 @Composable
 fun NpcShopDialog(
-    npc: LorenciaNpcDef,
+    npc: MapNpcDef,
     hero: HeroSave,
     onBuyItem: (Item, Int) -> String,
     onOpenChaosMachine: () -> Unit,
+    onOpenVault: () -> Unit,
+    onAdvanceEvolution: () -> Pair<Boolean, String>,
+    onRedeemArcherWings: () -> Pair<Boolean, String>,
     onDismiss: () -> Unit
 ) {
     var statusMessage by remember { mutableStateOf<String?>(null) }
@@ -36,10 +38,16 @@ fun NpcShopDialog(
         when (npc.id) {
             "barmaid" -> MuCatalog.SHOP_TEMPLATES.filter { it.slot == ItemSlot.POTION }
             "wizard" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq == "dw" || it.slot == ItemSlot.POTION }
-            "smith" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq != "dw" || it.slot == ItemSlot.OFFHAND }
+            "smith" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq in setOf("dk", "mg", "dl", "all") && it.slot != ItemSlot.ARMOR }
+            "armor-lorencia" -> MuCatalog.SHOP_TEMPLATES.filter { it.slot == ItemSlot.ARMOR || it.slot == ItemSlot.OFFHAND }
+            "elf-merchant" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq == "elf" || it.slot == ItemSlot.POTION }
+            "devias-potion" -> MuCatalog.SHOP_TEMPLATES
+            "chaos", "vault-lorencia", "marlon", "golden-archer" -> emptyList()
             else -> MuCatalog.SHOP_TEMPLATES
         }
     }
+
+    val talismanQty = hero.inventory.filter { it.slot == ItemSlot.TALISMAN }.sumOf { it.quantity }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -91,69 +99,164 @@ fun NpcShopDialog(
                     }
                 }
 
-                if (npc.id == "chaos") {
-                    Surface(
-                        color = MuStoneCard,
-                        shape = MaterialTheme.shapes.medium,
-                        border = BorderStroke(1.dp, MuPurple)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("¡Hola viajero! Tengo acceso directo a la Chaos Machine.", style = MaterialTheme.typography.bodyMedium, color = MuTextPrimary)
-                            Button(
-                                onClick = {
-                                    onDismiss()
-                                    onOpenChaosMachine()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MuPurple, contentColor = Color.White),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 48.dp)
-                                    .testTag("npc_open_chaos")
-                            ) {
-                                Icon(Icons.Rounded.Whatshot, contentDescription = null)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Abrir Chaos Machine")
+                when (npc.role) {
+                    "chaos" -> {
+                        Surface(
+                            color = MuStoneCard,
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, MuPurple)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("¡Hola viajero! Aquí en Noria puedes forjar Alas S1, S2, S3 y subir equipo a +13.", style = MaterialTheme.typography.bodyMedium, color = MuTextPrimary)
+                                Button(
+                                    onClick = {
+                                        onDismiss()
+                                        onOpenChaosMachine()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MuPurple, contentColor = Color.White),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("npc_open_chaos")
+                                ) {
+                                    Icon(Icons.Rounded.Whatshot, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Abrir Chaos Machine")
+                                }
+                            }
+                        }
+                    }
+
+                    "vault" -> {
+                        Surface(
+                            color = MuStoneCard,
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, MuSky)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Guarda joyas, alas y equipo en tu Baúl compartido entre tus 5 personajes.", style = MaterialTheme.typography.bodyMedium, color = MuTextPrimary)
+                                Button(
+                                    onClick = {
+                                        onDismiss()
+                                        onOpenVault()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("npc_open_vault")
+                                ) {
+                                    Icon(Icons.Rounded.Inventory2, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Abrir Baúl de Almacén")
+                                }
+                            }
+                        }
+                    }
+
+                    "quest" -> {
+                        val meta = MuCatalog.CLASS_CATALOG.getValue(hero.classId)
+                        Surface(
+                            color = MuStoneCard,
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, MuPurple)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Marlon supervisa las evoluciones de Nivel 150 (${meta.evo150Title}) y Nivel 400 (${meta.evo400Title}).",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MuTextPrimary
+                                )
+                                Button(
+                                    onClick = {
+                                        val (_, msg) = onAdvanceEvolution()
+                                        statusMessage = msg
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MuPurple, contentColor = Color.White),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("npc_advance_evolution")
+                                ) {
+                                    Icon(Icons.Rounded.MilitaryTech, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Completar Quest de Evolución")
+                                }
+                            }
+                        }
+                    }
+
+                    "archer" -> {
+                        Surface(
+                            color = MuStoneCard,
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, MuGold)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Entrega 3 Talisman / Rena + 3,000 Zen para recibir Alas S2 exclusivas de evento. Tienes: $talismanQty Talismanes.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MuTextPrimary
+                                )
+                                Button(
+                                    onClick = {
+                                        val (_, msg) = onRedeemArcherWings()
+                                        statusMessage = msg
+                                    },
+                                    enabled = talismanQty >= 3 && hero.zen >= 3000,
+                                    colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("npc_redeem_archer")
+                                ) {
+                                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Canjear 3 Talismanes por Alas S2")
+                                }
                             }
                         }
                     }
                 }
 
-                LazyColumn(
-                    modifier = Modifier.weight(1f, fill = false),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(shopPool, key = { it.templateId }) { tpl ->
-                        val costZen = if (tpl.slot == ItemSlot.POTION) tpl.valueZen * 5 else (tpl.valueZen * 1.4).roundToInt()
-                        Surface(
-                            color = MuStoneCard,
-                            shape = MaterialTheme.shapes.small,
-                            border = BorderStroke(1.dp, Color(tpl.colorHex).copy(alpha = 0.5f))
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                if (shopPool.isNotEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(shopPool, key = { it.templateId }) { tpl ->
+                            val costZen = if (tpl.slot == ItemSlot.POTION) tpl.valueZen * 5 else (tpl.valueZen * 1.4).roundToInt()
+                            Surface(
+                                color = MuStoneCard,
+                                shape = MaterialTheme.shapes.small,
+                                border = BorderStroke(1.dp, Color(tpl.colorHex).copy(alpha = 0.5f))
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (tpl.slot == ItemSlot.POTION) "${tpl.name} (x5)" else "${tpl.name} +${tpl.plus}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color(tpl.colorHex)
-                                    )
-                                    Text(
-                                        text = "${tpl.slot.labelEs} · Precio: $costZen Zen",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MuTextSecondary
-                                    )
-                                }
-                                Button(
-                                    onClick = { statusMessage = onBuyItem(tpl, costZen) },
-                                    enabled = hero.zen >= costZen,
-                                    colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("Comprar")
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (tpl.slot == ItemSlot.POTION) "${tpl.name} (x5)" else "${tpl.name} +${tpl.plus}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color(tpl.colorHex)
+                                        )
+                                        Text(
+                                            text = "${tpl.slot.labelEs} · Precio: $costZen Zen",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MuTextSecondary
+                                        )
+                                    }
+                                    Button(
+                                        onClick = { statusMessage = onBuyItem(tpl, costZen) },
+                                        enabled = hero.zen >= costZen,
+                                        colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202))
+                                    ) {
+                                        Text("Comprar")
+                                    }
                                 }
                             }
                         }

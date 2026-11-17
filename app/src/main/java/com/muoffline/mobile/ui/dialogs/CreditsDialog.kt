@@ -43,8 +43,8 @@ fun CreditsDialog(onDismiss: () -> Unit) {
                 }
 
                 CreditRow(
-                    title = "Mu Offline Mobile (Nativo Android)",
-                    detail = "Motor Kotlin + Jetpack Compose Canvas + SQLite local + Multijugador Wi-Fi LAN TCP/NSD sin internet ni servidor externo."
+                    title = "Mu Offline Mobile (Season 6 Ep 3)",
+                    detail = "Motor Kotlin + Jetpack Compose Canvas + archivos JSON planos (sin SQL) + Multijugador Wi-Fi LAN (12 jugadores) y Bluetooth."
                 )
                 CreditRow(
                     title = "Inspiración Open Source MU",

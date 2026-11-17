@@ -1,0 +1,13 @@
+{
+  "version": "6.3.1",
+  "season": "Season 6 Episode 3",
+  "updatedAt": "2026-11-16",
+  "notes": "Configuración base MU Offline S6E3: 5 clases con evoluciones 150/400, 15 mapas, Alas S1-S3, Joyería completa y eventos.",
+  "files": [
+    "clases.json",
+    "mapas.json",
+    "items.json",
+    "npcs.json",
+    "eventos.json"
+  ]
+}

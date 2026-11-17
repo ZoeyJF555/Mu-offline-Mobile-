@@ -1,0 +1,69 @@
+{
+  "classes": [
+    {
+      "id": "dk",
+      "name": "Dark Knight",
+      "evo150": "Blade Knight",
+      "evo400": "Blade Master",
+      "role": "Cuerpo a cuerpo · Alta defensa",
+      "pointsPerLevel": 5,
+      "unlockLevel": 1,
+      "baseHp": 220,
+      "baseMp": 90,
+      "attackRange": 72,
+      "baseStats": { "str": 28, "agi": 20, "vit": 25, "ene": 10 }
+    },
+    {
+      "id": "dw",
+      "name": "Dark Wizard",
+      "evo150": "Soul Master",
+      "evo400": "Grand Master",
+      "role": "Daño mágico masivo · Poca defensa",
+      "pointsPerLevel": 5,
+      "unlockLevel": 1,
+      "baseHp": 155,
+      "baseMp": 190,
+      "attackRange": 185,
+      "baseStats": { "str": 14, "agi": 18, "vit": 16, "ene": 35 }
+    },
+    {
+      "id": "elf",
+      "name": "Fairy Elf",
+      "evo150": "Muse Elf",
+      "evo400": "High Elf",
+      "role": "Arco, buffs de fuerza/defensa y curación",
+      "pointsPerLevel": 5,
+      "unlockLevel": 1,
+      "baseHp": 175,
+      "baseMp": 140,
+      "attackRange": 200,
+      "baseStats": { "str": 18, "agi": 32, "vit": 18, "ene": 15 }
+    },
+    {
+      "id": "mg",
+      "name": "Magic Gladiator",
+      "evo150": "Duel Master",
+      "evo400": "Magic Knight",
+      "role": "Híbrido DK+DW · 7 pts/nv · Sin casco",
+      "pointsPerLevel": 7,
+      "unlockLevel": 220,
+      "baseHp": 210,
+      "baseMp": 155,
+      "attackRange": 135,
+      "baseStats": { "str": 26, "agi": 26, "vit": 24, "ene": 26 }
+    },
+    {
+      "id": "dl",
+      "name": "Dark Lord",
+      "evo150": "Lord Emperor",
+      "evo400": "Empire Lord",
+      "role": "Físico/Mágico · Cuervo y Caballo Oscuro · 7 pts/nv",
+      "pointsPerLevel": 7,
+      "unlockLevel": 300,
+      "baseHp": 215,
+      "baseMp": 160,
+      "attackRange": 165,
+      "baseStats": { "str": 26, "agi": 22, "vit": 22, "ene": 28 }
+    }
+  ]
+}

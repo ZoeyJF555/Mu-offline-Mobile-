@@ -12,9 +12,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muoffline.mobile.model.MuCatalog
 import com.muoffline.mobile.model.PotionType
-import com.muoffline.mobile.ui.dialogs.CreditsDialog
-import com.muoffline.mobile.ui.dialogs.LanServerDialog
-import com.muoffline.mobile.ui.dialogs.ModsDialog
+import com.muoffline.mobile.ui.dialogs.*
 import com.muoffline.mobile.ui.screens.AuthScreen
 import com.muoffline.mobile.ui.screens.GameScreen
 import com.muoffline.mobile.ui.screens.TitleScreen
@@ -99,6 +97,10 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
 
     val mods by viewModel.mods.collectAsStateWithLifecycle()
     val activeModRates by viewModel.activeModRates.collectAsStateWithLifecycle()
+    val mapCatalog by viewModel.mapCatalog.collectAsStateWithLifecycle()
+    val hudSettings by viewModel.hudSettings.collectAsStateWithLifecycle()
+    val manifestInfo by viewModel.manifestInfo.collectAsStateWithLifecycle()
+    val syncStatusMessage by viewModel.syncStatusMessage.collectAsStateWithLifecycle()
 
     val lanStatus by viewModel.lanStatus.collectAsStateWithLifecycle()
     val connectedRoom by viewModel.connectedRoom.collectAsStateWithLifecycle()
@@ -109,6 +111,8 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
 
     var showModsDialog by remember { mutableStateOf(false) }
     var showLanDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showAdminDialog by remember { mutableStateOf(false) }
     var showCreditsDialog by remember { mutableStateOf(false) }
 
     when {
@@ -127,11 +131,14 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
                 heroes = heroes,
                 activeModsCount = mods.count { it.enabled },
                 lanConnectedRoom = connectedRoom,
+                maxHeroLevel = heroes.maxOfOrNull { it.level } ?: 1,
+                manifestVersion = manifestInfo.version,
                 onSelectHero = { viewModel.selectHero(it) },
                 onCreateHero = { name, cid -> viewModel.createHero(name, cid) },
                 onDeleteHero = { viewModel.deleteHero(it) },
                 onOpenMods = { showModsDialog = true },
                 onOpenLan = { showLanDialog = true },
+                onOpenAdmin = { showAdminDialog = true },
                 onOpenCredits = { showCreditsDialog = true },
                 onLogout = { viewModel.logoutAccount() }
             )
@@ -141,7 +148,9 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
                 hero = activeHero!!,
                 viewModel = viewModel,
                 onOpenMods = { showModsDialog = true },
-                onOpenLan = { showLanDialog = true }
+                onOpenLan = { showLanDialog = true },
+                onOpenSettings = { showSettingsDialog = true },
+                onOpenAdmin = { showAdminDialog = true }
             )
         }
     }
@@ -177,6 +186,30 @@ private fun MuOfflineRoot(viewModel: GameViewModel) {
             onRequestTrade = { pid -> viewModel.lanManager.sendTradeRequest(pid) },
             onStartEvent = { evType -> viewModel.lanManager.sendStartEvent(evType) },
             onDismiss = { showLanDialog = false }
+        )
+    }
+
+    if (showSettingsDialog) {
+        SettingsDialog(
+            settings = hudSettings,
+            onUpdateSettings = { transform -> viewModel.updateHudSettings(transform) },
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (showAdminDialog) {
+        AdminDialog(
+            mapCatalog = mapCatalog,
+            manifestInfo = manifestInfo,
+            initialManifestUrl = hudSettings.manifestUrl,
+            syncStatusMessage = syncStatusMessage,
+            onUpdateMapRates = { mid, exp, zen, drop -> viewModel.updateMapRates(mid, exp, zen, drop) },
+            onLoadMapsRawJson = { viewModel.loadMapsRawJson() },
+            onSaveMapsRawJson = { raw, cb -> viewModel.saveMapsRawJson(raw, cb) },
+            onLoadNpcsRawJson = { viewModel.loadNpcsRawJson() },
+            onSaveNpcsRawJson = { raw, cb -> viewModel.saveNpcsRawJson(raw, cb) },
+            onSyncManifestUrl = { url -> viewModel.syncManifestFromUrl(url) },
+            onDismiss = { showAdminDialog = false }
         )
     }
 

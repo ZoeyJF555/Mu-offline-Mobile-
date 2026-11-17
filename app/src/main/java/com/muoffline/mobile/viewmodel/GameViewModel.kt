@@ -37,12 +37,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _heroes = MutableStateFlow<List<HeroSave>>(emptyList())
     val heroes = _heroes.asStateFlow()
 
+    private val _vaultItems = MutableStateFlow<List<Item>>(emptyList())
+    val vaultItems = _vaultItems.asStateFlow()
+
     private val _mods = MutableStateFlow<List<ModPackage>>(emptyList())
     val mods = _mods.asStateFlow()
 
     val activeModRates: StateFlow<ActiveModRates> = _mods
         .map { MuCatalog.computeActiveModRates(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ActiveModRates())
+
+    private val _mapCatalog = MutableStateFlow(MuCatalog.DEFAULT_MAP_CATALOG)
+    val mapCatalog = _mapCatalog.asStateFlow()
+
+    private val _npcs = MutableStateFlow(MuCatalog.DEFAULT_NPCS)
+    val npcs = _npcs.asStateFlow()
+
+    private val _hudSettings = MutableStateFlow(MobileHudSettings())
+    val hudSettings = _hudSettings.asStateFlow()
+
+    private val _manifestInfo = MutableStateFlow(ManifestInfo())
+    val manifestInfo = _manifestInfo.asStateFlow()
+
+    private val _syncStatusMessage = MutableStateFlow<String?>(null)
+    val syncStatusMessage = _syncStatusMessage.asStateFlow()
 
     private val _activeHero = MutableStateFlow<HeroSave?>(null)
     val activeHero = _activeHero.asStateFlow()
@@ -108,8 +126,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             _mods.value = repo.loadMods()
+            _mapCatalog.value = repo.loadMapsConfig()
+            _npcs.value = repo.loadNpcs()
+            _manifestInfo.value = repo.loadManifest()
+            val settings = repo.loadSettings()
+            _hudSettings.value = settings
+            soundFx.sfxVolume = settings.sfxVolume
             _accountId.value?.let { acc ->
                 _heroes.value = repo.loadHeroes(acc)
+                _vaultItems.value = repo.loadVault(acc)
             }
         }
         observeLanEvents()
@@ -129,6 +154,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (res.ok && res.accountId != null) {
                 _accountId.value = res.accountId
                 _heroes.value = repo.loadHeroes(res.accountId)
+                _vaultItems.value = repo.loadVault(res.accountId)
             } else {
                 _authError.value = res.error ?: "Error al iniciar sesión."
             }
@@ -148,6 +174,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (res.ok && res.accountId != null) {
                 _accountId.value = res.accountId
                 _heroes.value = repo.loadHeroes(res.accountId)
+                _vaultItems.value = repo.loadVault(res.accountId)
             } else {
                 _authError.value = res.error ?: "No se pudo registrar la cuenta."
             }
@@ -161,6 +188,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _activeHero.value = null
         _accountId.value = null
         _heroes.value = emptyList()
+        _vaultItems.value = emptyList()
+    }
+
+    fun maxAccountHeroLevel(): Int = _heroes.value.maxOfOrNull { it.level } ?: 1
+
+    fun canCreateClass(classId: ClassId): Boolean {
+        val req = MuCatalog.CLASS_CATALOG.getValue(classId).unlockLevel
+        return maxAccountHeroLevel() >= req
     }
 
     fun selectHero(hero: HeroSave) {
@@ -178,19 +213,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _vfxList.value = emptyList()
     }
 
-    fun createHero(rawName: String, classId: ClassId) {
-        val acc = _accountId.value ?: return
+    fun createHero(rawName: String, classId: ClassId): String? {
+        val acc = _accountId.value ?: return "Sin sesión activa"
+        if (_heroes.value.size >= 5) {
+            return "Límite clásico de 5 slots de personaje alcanzado."
+        }
+        if (!canCreateClass(classId)) {
+            val req = MuCatalog.CLASS_CATALOG.getValue(classId).unlockLevel
+            return "Requiere tener un personaje nivel $req+ en esta cuenta."
+        }
         val hero = MuCatalog.createStarterHero(acc, rawName, classId)
         viewModelScope.launch {
             repo.saveHero(hero)
             _heroes.value = listOf(hero) + _heroes.value
             selectHero(hero)
         }
+        return null
     }
 
     fun deleteHero(heroId: String) {
+        val acc = _accountId.value ?: return
         viewModelScope.launch {
-            repo.deleteHero(heroId)
+            repo.deleteHero(acc, heroId)
             _heroes.value = _heroes.value.filterNot { it.id == heroId }
         }
     }
@@ -208,8 +252,19 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _activeHero.value = null
     }
 
-    fun changeMap(mapId: MapId) {
-        val hero = _activeHero.value ?: return
+    fun changeMap(mapId: MapId): String? {
+        val hero = _activeHero.value ?: return null
+        val meta = _mapCatalog.value[mapId] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(mapId)
+        if (hero.level < meta.minLevel) {
+            val msg = "${meta.name} requiere nivel ${meta.minLevel}."
+            pushFloatingText(hero.x, hero.y - 26f, msg, 0xFFEF4444)
+            return msg
+        }
+        if (mapId == MapId.ICARUS && hero.equipment.wings == null) {
+            val msg = "Icarus requiere tener Alas equipadas."
+            pushFloatingText(hero.x, hero.y - 26f, msg, 0xFF38BDF8)
+            return msg
+        }
         val next = hero.copy(
             mapId = mapId,
             x = MuWorldConstants.SAFE_CENTER,
@@ -222,6 +277,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (connectedRoom.value != null) {
             lanManager.sendPlayerMove(next, _heroFacingAngle.value)
         }
+        return null
+    }
+
+    fun updateHudSettings(transform: (MobileHudSettings) -> MobileHudSettings) {
+        val next = transform(_hudSettings.value)
+        _hudSettings.value = next
+        soundFx.sfxVolume = next.sfxVolume
+        viewModelScope.launch { repo.saveSettings(next) }
     }
 
     fun toggleAutoHunt() {
@@ -304,13 +367,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             soundFx.playSkill()
 
             if (skill.id == "heal-aura") {
-                val healAmt = (derived.maxHp * 0.42f).roundToInt()
+                val healAmt = (derived.maxHp * 0.45f).roundToInt()
                 _activeHero.value = hero.copy(
                     mp = hero.mp - mpCost,
                     hp = min(derived.maxHp, hero.hp + healAmt)
                 )
                 pushFloatingText(hero.x, hero.y - 20f, "+$healAmt HP", 0xFF34D399, isCrit = true)
-                pushVfx(skill.id, hero.x, hero.y, hero.x, hero.y, skill.colorHex, skill.aoeRadius)
+                if (_hudSettings.value.animationsEnabled) {
+                    pushVfx(skill.id, hero.x, hero.y, hero.x, hero.y, skill.colorHex, skill.aoeRadius)
+                }
                 return
             }
         } else {
@@ -332,13 +397,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         val targetX = primary?.x ?: hero.x
         val targetY = primary?.y ?: hero.y
-        pushVfx(skillId ?: "basic", hero.x, hero.y, targetX, targetY, vfxColor, aoeRadius)
+        if (_hudSettings.value.animationsEnabled) {
+            pushVfx(skillId ?: "basic", hero.x, hero.y, targetX, targetY, vfxColor, aoeRadius)
+        }
 
         if (connectedRoom.value != null) {
             lanManager.sendSkillCast(skillId ?: "basic", hero.x, hero.y, targetX, targetY)
         }
 
-        // Hit cooperative LAN bosses if in range
         for (lb in _lanBosses.value) {
             if (lb.mapId == hero.mapId && lb.hp > 0 && hypot((lb.x - targetX).toDouble(), (lb.y - targetY).toDouble()) <= aoeRadius + 32f) {
                 val dmg = max(10, (derived.attackPower * dmgMultiplier).roundToInt())
@@ -355,6 +421,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val rates = activeModRates.value
+        val mapMeta = _mapCatalog.value[hero.mapId] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(hero.mapId)
         var totalExp = 0
         var totalZen = 0
         val killed = mutableListOf<LiveMonster>()
@@ -380,8 +447,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             if (newHp == 0) {
-                totalExp += (m.expReward * rates.expMul).roundToInt()
-                totalZen += (m.zenReward * 0.35 * rates.zenMul).roundToInt()
+                totalExp += max(5, (m.expReward * mapMeta.expRate * rates.expMul).roundToInt())
+                totalZen += max(10, (m.zenReward * 0.35 * mapMeta.dropZenRate * rates.zenMul).roundToInt())
                 killed += m
                 m.copy(hp = 0, respawnAt = nowMs + if (m.isBoss) 18_000L else 6_500L)
             } else {
@@ -390,7 +457,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         for (km in killed) {
-            spawnDropAt(km.x, km.y, km)
+            spawnDropAt(km.x, km.y, km, mapMeta)
         }
 
         var nextHero = hero.copy(mp = max(0, hero.mp - mpCost))
@@ -444,6 +511,34 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         saveHeroAsync(finalHero)
     }
 
+    fun advanceEvolutionQuest(): Pair<Boolean, String> {
+        val hero = _activeHero.value ?: return false to "Sin héroe activo."
+        val meta = MuCatalog.CLASS_CATALOG.getValue(hero.classId)
+        return when {
+            hero.evolutionTier == 0 && hero.level >= 150 -> {
+                val upgraded = hero.copy(evolutionTier = 1, statPoints = hero.statPoints + 25)
+                val derived = MuCatalog.computeDerivedHeroStats(upgraded)
+                val finalHero = upgraded.copy(maxHp = derived.maxHp, maxMp = derived.maxMp, hp = derived.maxHp, mp = derived.maxMp)
+                soundFx.playLevelUp()
+                _activeHero.value = finalHero
+                saveHeroAsync(finalHero)
+                true to "¡Evolucionaste a ${meta.evo150Title}! (+25 puntos y +15% poder)"
+            }
+            hero.evolutionTier == 1 && hero.level >= 400 -> {
+                val upgraded = hero.copy(evolutionTier = 2, statPoints = hero.statPoints + 50)
+                val derived = MuCatalog.computeDerivedHeroStats(upgraded)
+                val finalHero = upgraded.copy(maxHp = derived.maxHp, maxMp = derived.maxMp, hp = derived.maxHp, mp = derived.maxMp)
+                soundFx.playLevelUp()
+                _activeHero.value = finalHero
+                saveHeroAsync(finalHero)
+                true to "¡Evolucionaste a ${meta.evo400Title}! (+50 puntos y +30% poder)"
+            }
+            hero.evolutionTier >= 2 -> false to "Ya alcanzaste tu evolución máxima (${meta.evo400Title})."
+            hero.evolutionTier == 0 -> false to "Necesitas Nivel 150 para evolucionar a ${meta.evo150Title}."
+            else -> false to "Necesitas Nivel 400 para evolucionar a ${meta.evo400Title}."
+        }
+    }
+
     fun resetHero() {
         val hero = _activeHero.value ?: return
         if (hero.level < activeModRates.value.resetLevel) return
@@ -474,9 +569,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         saveHeroAsync(finalHero)
     }
 
-    fun equipItem(item: Item) {
-        if (item.slot == ItemSlot.JEWEL || item.slot == ItemSlot.POTION) return
-        val hero = _activeHero.value ?: return
+    fun equipItem(item: Item): String? {
+        if (item.slot == ItemSlot.JEWEL || item.slot == ItemSlot.POTION || item.slot == ItemSlot.TALISMAN) return null
+        val hero = _activeHero.value ?: return null
+        val meta = MuCatalog.CLASS_CATALOG.getValue(hero.classId)
+        if (item.slot == ItemSlot.HELM && !meta.canEquipHelm) {
+            return "Magic Gladiator no puede equipar Casco."
+        }
+        if (item.classReq != "all" && item.classReq != hero.classId.wire) {
+            return "Este ítem es exclusivo de clase ${item.classReq.uppercase()}."
+        }
         val currentEq = hero.equipment.getSlot(item.slot)
         val nextInv = hero.inventory.filterNot { it.id == item.id }.toMutableList()
         if (currentEq != null) nextInv.add(currentEq)
@@ -488,6 +590,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val finalHero = updated.copy(maxHp = derived.maxHp, maxMp = derived.maxMp)
         _activeHero.value = finalHero
         saveHeroAsync(finalHero)
+        return null
     }
 
     fun unequipSlot(slot: ItemSlot) {
@@ -502,6 +605,37 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val finalHero = updated.copy(maxHp = derived.maxHp, maxMp = derived.maxMp)
         _activeHero.value = finalHero
         saveHeroAsync(finalHero)
+    }
+
+    fun depositToVault(item: Item): String {
+        val acc = _accountId.value ?: return "Error"
+        val hero = _activeHero.value ?: return "Error"
+        if (_vaultItems.value.size >= 40) return "Baúl lleno (máx. 40)."
+        val nextInv = hero.inventory.filterNot { it.id == item.id }
+        val nextVault = _vaultItems.value + item
+        _vaultItems.value = nextVault
+        val nextHero = hero.copy(inventory = nextInv)
+        _activeHero.value = nextHero
+        viewModelScope.launch {
+            repo.saveVault(acc, nextVault)
+            repo.saveHero(nextHero)
+        }
+        return "${item.name} guardado en el Baúl."
+    }
+
+    fun withdrawFromVault(item: Item): String {
+        val acc = _accountId.value ?: return "Error"
+        val hero = _activeHero.value ?: return "Error"
+        if (hero.inventory.size >= 24) return "Mochila llena (máx. 24)."
+        val nextVault = _vaultItems.value.filterNot { it.id == item.id }
+        val nextHero = addItemToHero(hero, item)
+        _vaultItems.value = nextVault
+        _activeHero.value = nextHero
+        viewModelScope.launch {
+            repo.saveVault(acc, nextVault)
+            repo.saveHero(nextHero)
+        }
+        return "${item.name} retirado a tu mochila."
     }
 
     fun sellItem(itemId: String): String {
@@ -520,7 +654,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun buyShopItem(template: Item, costZen: Int): String {
         val hero = _activeHero.value ?: return "No hay héroe activo."
         if (hero.zen < costZen) return "No tienes suficiente Zen."
-        if (hero.inventory.size >= 24 && template.slot != ItemSlot.POTION && template.slot != ItemSlot.JEWEL) {
+        if (hero.inventory.size >= 24 && template.slot != ItemSlot.POTION && template.slot != ItemSlot.JEWEL && template.slot != ItemSlot.TALISMAN) {
             return "Tu mochila está llena (máx. 24 espacios)."
         }
         val newItem = template.copy(
@@ -537,7 +671,30 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun upgradeWithJewel(targetItemId: String, jewelType: JewelType): String {
         val hero = _activeHero.value ?: return "Error interno"
         val nextInv = consumeOneJewel(hero.inventory, jewelType)
-            ?: return "Necesitas 1 Jewel of ${if (jewelType == JewelType.BLESS) "Bless" else "Soul"}."
+            ?: return "Necesitas 1 Jewel of ${jewelType.name.lowercase().replaceFirstChar { it.uppercase() }}."
+
+        if (jewelType == JewelType.LIFE) {
+            var itemName = ""
+            val mutate: (Item) -> Item = { item ->
+                if (item.id != targetItemId) item
+                else {
+                    itemName = item.name
+                    item.copy(
+                        attack = if (item.attack > 0) item.attack + 4 else 0,
+                        magic = if (item.magic > 0) item.magic + 4 else 0,
+                        defense = if (item.defense > 0) item.defense + 4 else 0
+                    )
+                }
+            }
+            val baseNext = hero.copy(equipment = hero.equipment.mapItems(mutate), inventory = nextInv.map(mutate))
+            val derived = MuCatalog.computeDerivedHeroStats(baseNext)
+            val nextHero = baseNext.copy(maxHp = derived.maxHp, maxMp = derived.maxMp)
+            soundFx.playChaosSuccess()
+            _activeHero.value = nextHero
+            saveHeroAsync(nextHero)
+            return "¡Jewel of Life aplicada! +4 ATK/DEF adicional a $itemName."
+        }
+
         val success = if (jewelType == JewelType.BLESS) true else Random.nextFloat() < 0.72f
         var upgradedName = ""
         var newPlus = 0
@@ -592,49 +749,143 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         else "Combinación fallida: ${target.name} bajó a +$newPlus."
     }
 
-    fun craftWings(): Pair<Boolean, String> {
+    fun craftWingsTier(tier: Int = 2): Pair<Boolean, String> {
         val hero = _activeHero.value ?: return false to "Error interno"
-        if (hero.zen < 5000) return false to "Necesitas 5,000 Zen."
-        val afterChaos = consumeOneJewel(hero.inventory, JewelType.CHAOS) ?: return false to "Necesitas 1 Jewel of Chaos."
-        val afterBless = consumeOneJewel(afterChaos, JewelType.BLESS) ?: return false to "Necesitas 1 Jewel of Bless."
+        val zenCost = when (tier) {
+            1 -> 2500
+            3 -> 12000
+            else -> 5000
+        }
+        if (hero.zen < zenCost) return false to "Necesitas $zenCost Zen."
+        var inv = consumeOneJewel(hero.inventory, JewelType.CHAOS) ?: return false to "Necesitas 1 Jewel of Chaos."
+        if (tier >= 2) {
+            inv = consumeOneJewel(inv, JewelType.BLESS) ?: return false to "Alas S$tier requieren 1 Jewel of Bless."
+        }
+        if (tier >= 3) {
+            inv = consumeOneJewel(inv, JewelType.CREATION) ?: return false to "Alas S3 requieren 1 Jewel of Creation."
+        }
 
-        val rate = (70 + activeModRates.value.chaosBonus).coerceAtMost(95) / 100f
+        val baseRate = when (tier) {
+            1 -> 82
+            3 -> 55
+            else -> 70
+        }
+        val rate = (baseRate + activeModRates.value.chaosBonus).coerceIn(30, 95) / 100f
         val ok = Random.nextFloat() < rate
-        var nextHero = hero.copy(zen = hero.zen - 5000, inventory = afterBless)
+        var nextHero = hero.copy(zen = hero.zen - zenCost, inventory = inv)
 
         if (ok) {
             soundFx.playChaosSuccess()
-            val wingsName = when (hero.classId) {
-                ClassId.DK -> "Wings of Dragon"
-                ClassId.DW -> "Wings of Soul"
-                ClassId.ELF -> "Wings of Spirits"
+            val newWings = when (tier) {
+                1 -> Item(MuCatalog.newUid("wings"), "crafted-wings-s1", "Wings of Satan (S1)", ItemSlot.WINGS, ItemRarity.NORMAL, plus = 1, attack = 22, magic = 22, defense = 18, speedBonus = 14, wingsTier = 1, colorHex = 0xFFA855F7, valueZen = 18000)
+                3 -> Item(MuCatalog.newUid("wings"), "crafted-wings-s3", "Wings of Storm (S3)", ItemSlot.WINGS, ItemRarity.MYTHIC, plus = 5, attack = 74, magic = 74, defense = 58, hpBonus = 260, speedBonus = 30, wingsTier = 3, colorHex = 0xFFFBBF24, valueZen = 68000)
+                else -> {
+                    val wingsName = when (hero.classId) {
+                        ClassId.DK, ClassId.MG -> "Wings of Dragon (S2)"
+                        ClassId.DW -> "Wings of Soul (S2)"
+                        ClassId.ELF -> "Wings of Spirits (S2)"
+                        ClassId.DL -> "Cape of Lord (S2)"
+                    }
+                    Item(MuCatalog.newUid("wings"), "crafted-wings-s2", wingsName, ItemSlot.WINGS, ItemRarity.EXCELLENT, plus = 3, attack = 42, magic = 42, defense = 34, hpBonus = 150, speedBonus = 22, wingsTier = 2, colorHex = 0xFF38BDF8, valueZen = 32000)
+                }
             }
-            val newWings = Item(
-                id = MuCatalog.newUid("wings"),
-                templateId = "crafted-wings",
-                name = wingsName,
-                slot = ItemSlot.WINGS,
-                rarity = ItemRarity.EXCELLENT,
-                plus = 3,
-                attack = 34,
-                magic = 34,
-                defense = 28,
-                hpBonus = 140,
-                speedBonus = 20,
-                classReq = "all",
-                colorHex = 0xFFFBBF24,
-                valueZen = 24000
-            )
             nextHero = addItemToHero(nextHero, newWings)
             _activeHero.value = nextHero
             saveHeroAsync(nextHero)
-            return true to "¡Forjaste ${newWings.name} +3! Revisa tu mochila para equiparlas."
+            return true to "¡Forjaste ${newWings.name} +${newWings.plus}! Equípalas desde tu mochila."
         }
 
         soundFx.playChaosFail()
         _activeHero.value = nextHero
         saveHeroAsync(nextHero)
-        return false to "La Chaos Machine falló al forjar las alas."
+        return false to "La Chaos Machine falló al forjar las alas S$tier."
+    }
+
+    fun redeemGoldenArcherWings(): Pair<Boolean, String> {
+        val hero = _activeHero.value ?: return false to "Sin héroe activo."
+        val idx = hero.inventory.indexOfFirst { it.slot == ItemSlot.TALISMAN && it.quantity >= 3 }
+        if (idx < 0) return false to "Golden Archer requiere 3 Talisman / Rena."
+        if (hero.zen < 3000) return false to "Necesitas 3,000 Zen."
+        val inv = hero.inventory.toMutableList()
+        val tal = inv[idx]
+        if (tal.quantity > 3) inv[idx] = tal.copy(quantity = tal.quantity - 3) else inv.removeAt(idx)
+
+        val reward = Item(
+            id = MuCatalog.newUid("archer-wings"),
+            templateId = "wings-s2-archer",
+            name = "Wings of Spirits (S2 · Archer)",
+            slot = ItemSlot.WINGS,
+            rarity = ItemRarity.EXCELLENT,
+            plus = 3,
+            attack = 44,
+            magic = 44,
+            defense = 34,
+            hpBonus = 160,
+            speedBonus = 24,
+            wingsTier = 2,
+            colorHex = 0xFFFDE047,
+            valueZen = 35000
+        )
+        val nextHero = addItemToHero(hero.copy(zen = hero.zen - 3000, inventory = inv), reward)
+        soundFx.playChaosSuccess()
+        _activeHero.value = nextHero
+        saveHeroAsync(nextHero)
+        return true to "¡Golden Archer te entregó ${reward.name}!"
+    }
+
+    // Admin JSON & Remote Manifest Sync
+    fun updateMapRates(mapId: MapId, expRate: Double, dropZen: Double, dropItems: Double) {
+        val current = _mapCatalog.value.toMutableMap()
+        val existing = current[mapId] ?: return
+        current[mapId] = existing.copy(
+            expRate = expRate.coerceIn(0.05, 50.0),
+            dropZenRate = dropZen.coerceIn(0.1, 50.0),
+            dropItemRate = dropItems.coerceIn(0.05, 1.0)
+        )
+        _mapCatalog.value = current
+        viewModelScope.launch { repo.saveMapsConfig(current) }
+    }
+
+    suspend fun loadMapsRawJson(): String = repo.loadMapsRawJson()
+
+    fun saveMapsRawJson(raw: String, onDone: (Result<String>) -> Unit) {
+        viewModelScope.launch {
+            val res = repo.saveMapsRawJson(raw)
+            res.onSuccess { updated ->
+                _mapCatalog.value = updated
+                onDone(Result.success("mapas.json guardado y aplicado."))
+            }.onFailure { err ->
+                onDone(Result.failure(err))
+            }
+        }
+    }
+
+    suspend fun loadNpcsRawJson(): String = repo.loadNpcsRawJson()
+
+    fun saveNpcsRawJson(raw: String, onDone: (Result<String>) -> Unit) {
+        viewModelScope.launch {
+            val res = repo.saveNpcsRawJson(raw)
+            res.onSuccess { updated ->
+                _npcs.value = updated
+                onDone(Result.success("npcs.json guardado y aplicado."))
+            }.onFailure { err ->
+                onDone(Result.failure(err))
+            }
+        }
+    }
+
+    fun syncManifestFromUrl(url: String) {
+        updateHudSettings { it.copy(manifestUrl = url.trim()) }
+        viewModelScope.launch {
+            _syncStatusMessage.value = "Descargando manifest.json..."
+            val res = repo.syncFromManifestUrl(url)
+            _syncStatusMessage.value = res.message
+            if (res.ok) {
+                res.manifest?.let { _manifestInfo.value = it }
+                _mapCatalog.value = repo.loadMapsConfig()
+                _npcs.value = repo.loadNpcs()
+            }
+        }
     }
 
     // Mods management
@@ -738,7 +989,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     is LanIncomingEvent.PlayerCast -> {
                         val hero = _activeHero.value
-                        if (hero != null && ev.mapId == hero.mapId) {
+                        if (hero != null && ev.mapId == hero.mapId && _hudSettings.value.animationsEnabled) {
                             pushVfx(ev.skillId, ev.x, ev.y, ev.targetX, ev.targetY, 0xFF38BDF8, 80f)
                         }
                     }
@@ -839,7 +1090,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val now = System.currentTimeMillis()
                 val derived = MuCatalog.computeDerivedHeroStats(hero)
 
-                // Apply virtual joystick movement smoothly at 10Hz + visual delta
                 val jx = joystickX
                 val jy = joystickY
                 val mag = hypot(jx.toDouble(), jy.toDouble()).toFloat()
@@ -854,7 +1104,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     (currentHero.y - MuWorldConstants.SAFE_CENTER).toDouble()
                 ) <= MuWorldConstants.SAFE_RADIUS
 
-                // Collect drops within pickup radius
                 val collected = mutableListOf<GroundDrop>()
                 val remaining = mutableListOf<GroundDrop>()
                 for (d in _drops.value) {
@@ -880,7 +1129,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                // Monster AI & Combat Damage
                 var damageToHero = 0
                 _monsters.value = _monsters.value.map { m ->
                     if (m.hp <= 0) {
@@ -932,13 +1180,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     mp = derived.maxMp
                     hx = MuWorldConstants.SAFE_CENTER
                     hy = MuWorldConstants.SAFE_CENTER
-                    pushFloatingText(hx, hy - 30f, "Regresaste a Lorencia Segura", 0xFFFBBF24)
+                    pushFloatingText(hx, hy - 30f, "Regresaste a Zona Segura", 0xFFFBBF24)
                 }
 
                 updatedHero = updatedHero.copy(hp = hp, mp = mp, maxHp = derived.maxHp, maxMp = derived.maxMp, x = hx, y = hy)
                 _activeHero.value = updatedHero
 
-                // MU Helper Auto-Hunt
                 if (_autoHunt.value) {
                     val targetDrop = _drops.value.firstOrNull()
                     val alive = _monsters.value.filter { it.hp > 0 }
@@ -975,11 +1222,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                // Prune expired floating texts & VFX
                 _floatingTexts.value = _floatingTexts.value.filter { now - it.createdAt < 950L }
                 _vfxList.value = _vfxList.value.filter { now - it.createdAt < it.durationMs }
 
-                // Periodic auto-save every 3.5 seconds
                 if (now - lastAutoSaveAt > 3500L) {
                     lastAutoSaveAt = now
                     _activeHero.value?.let { saveHeroAsync(it) }
@@ -988,9 +1233,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun spawnDropAt(x: Float, y: Float, monster: LiveMonster) {
+    private fun spawnDropAt(x: Float, y: Float, monster: LiveMonster, mapMeta: MapMeta) {
         val rates = activeModRates.value
-        val zenAmount = (monster.zenReward * rates.zenMul).roundToInt()
+        val zenAmount = max(15, (monster.zenReward * mapMeta.dropZenRate * rates.zenMul).roundToInt())
         val now = System.currentTimeMillis()
         val spawned = mutableListOf(
             GroundDrop(MuCatalog.newUid("zen"), x - 14f, y + 8f, zen = zenAmount, createdAt = now)
@@ -1010,6 +1255,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     magic = ci.magic,
                     hpBonus = ci.hpBonus,
                     speedBonus = ci.speedBonus,
+                    wingsTier = ci.wingsTier,
                     classReq = ci.classReq,
                     colorHex = ci.colorHex,
                     valueZen = ci.valueZen
@@ -1017,7 +1263,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        val baseChance = if (monster.guaranteedJewel) 1.0 else min(0.9, 0.34 * rates.dropMul)
+        val baseChance = if (monster.guaranteedJewel) 1.0 else min(0.95, mapMeta.dropItemRate * rates.dropMul)
         if (Random.nextDouble() <= baseChance) {
             val pool = MuCatalog.DROP_ITEM_POOL + modItems
             val picked = if (monster.guaranteedJewel) {
@@ -1040,11 +1286,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         var expToNext = hero.expToNext
         var statPoints = hero.statPoints
         var leveledUp = false
+        val ptsPerLevel = MuCatalog.CLASS_CATALOG.getValue(hero.classId).pointsPerLevel
 
         while (exp >= expToNext && level < 400) {
             exp -= expToNext
             level += 1
-            statPoints += 5
+            statPoints += ptsPerLevel
             expToNext = MuCatalog.expNeededForLevel(level)
             leveledUp = true
         }
@@ -1068,7 +1315,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun addItemToHero(hero: HeroSave, item: Item): HeroSave {
         val inv = hero.inventory.toMutableList()
-        if (item.slot == ItemSlot.POTION || item.slot == ItemSlot.JEWEL) {
+        if (item.slot == ItemSlot.POTION || item.slot == ItemSlot.JEWEL || item.slot == ItemSlot.TALISMAN) {
             val idx = inv.indexOfFirst { it.templateId == item.templateId }
             if (idx >= 0) {
                 inv[idx] = inv[idx].copy(quantity = inv[idx].quantity + max(1, item.quantity))

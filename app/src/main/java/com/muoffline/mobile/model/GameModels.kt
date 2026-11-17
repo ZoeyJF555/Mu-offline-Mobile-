@@ -5,7 +5,9 @@ import androidx.annotation.DrawableRes
 enum class ClassId(val wire: String) {
     DK("dk"),
     DW("dw"),
-    ELF("elf");
+    ELF("elf"),
+    MG("mg"),
+    DL("dl");
 
     companion object {
         fun fromWire(value: String?): ClassId =
@@ -15,14 +17,27 @@ enum class ClassId(val wire: String) {
 
 enum class MapId(val wire: String) {
     LORENCIA("lorencia"),
-    DUNGEON("dungeon"),
-    DEVIAS("devias"),
     NORIA("noria"),
+    DEVIAS("devias"),
+    DUNGEON1("dungeon1"),
+    DUNGEON2("dungeon2"),
+    DUNGEON3("dungeon3"),
+    ATLANS("atlans"),
+    LOSTTOWER("losttower"),
+    KALIMA("kalima"),
+    TARKAN("tarkan"),
+    ICARUS("icarus"),
+    KANTURU("kanturu"),
+    AIDA("aida"),
+    CRYWOLF("crywolf"),
+    STADIUM("stadium"),
     CUSTOM("custom");
 
     companion object {
-        fun fromWire(value: String?): MapId =
-            entries.firstOrNull { it.wire == value?.lowercase() } ?: LORENCIA
+        fun fromWire(value: String?): MapId = when (value?.lowercase()) {
+            "dungeon" -> DUNGEON1
+            else -> entries.firstOrNull { it.wire == value?.lowercase() } ?: LORENCIA
+        }
     }
 }
 
@@ -33,8 +48,10 @@ enum class ItemSlot(val wire: String, val labelEs: String) {
     HELM("helm", "Casco"),
     WINGS("wings", "Alas"),
     PENDANT("pendant", "Colgante"),
+    PET("pet", "Mascota"),
     JEWEL("jewel", "Joya"),
-    POTION("potion", "Poción");
+    POTION("potion", "Poción"),
+    TALISMAN("talisman", "Talismán");
 
     companion object {
         fun fromWire(value: String?): ItemSlot =
@@ -58,7 +75,8 @@ enum class JewelType(val wire: String) {
     BLESS("bless"),
     SOUL("soul"),
     CHAOS("chaos"),
-    LIFE("life");
+    LIFE("life"),
+    CREATION("creation");
 
     companion object {
         fun fromWire(value: String?): JewelType? =
@@ -94,6 +112,7 @@ data class Item(
     val magic: Int = 0,
     val speedBonus: Int = 0,
     val hpBonus: Int = 0,
+    val wingsTier: Int = 0,
     val jewelType: JewelType? = null,
     val potionType: PotionType? = null,
     val classReq: String = "all",
@@ -108,9 +127,10 @@ data class EquipSlots(
     val armor: Item? = null,
     val helm: Item? = null,
     val wings: Item? = null,
-    val pendant: Item? = null
+    val pendant: Item? = null,
+    val pet: Item? = null
 ) {
-    fun allEquipped(): List<Item> = listOfNotNull(weapon, offhand, armor, helm, wings, pendant)
+    fun allEquipped(): List<Item> = listOfNotNull(weapon, offhand, armor, helm, wings, pendant, pet)
 
     fun getSlot(slot: ItemSlot): Item? = when (slot) {
         ItemSlot.WEAPON -> weapon
@@ -119,6 +139,7 @@ data class EquipSlots(
         ItemSlot.HELM -> helm
         ItemSlot.WINGS -> wings
         ItemSlot.PENDANT -> pendant
+        ItemSlot.PET -> pet
         else -> null
     }
 
@@ -129,6 +150,7 @@ data class EquipSlots(
         ItemSlot.HELM -> copy(helm = item)
         ItemSlot.WINGS -> copy(wings = item)
         ItemSlot.PENDANT -> copy(pendant = item)
+        ItemSlot.PET -> copy(pet = item)
         else -> this
     }
 
@@ -138,7 +160,8 @@ data class EquipSlots(
         armor = armor?.let(transform),
         helm = helm?.let(transform),
         wings = wings?.let(transform),
-        pendant = pendant?.let(transform)
+        pendant = pendant?.let(transform),
+        pet = pet?.let(transform)
     )
 }
 
@@ -165,6 +188,7 @@ data class HeroSave(
     val accountId: String,
     val name: String,
     val classId: ClassId,
+    val evolutionTier: Int = 0,
     val level: Int,
     val resets: Int,
     val exp: Int,
@@ -188,17 +212,27 @@ data class HeroSave(
 data class ClassMeta(
     val id: ClassId,
     val name: String,
-    val title: String,
+    val evo150Title: String,
+    val evo400Title: String,
     val role: String,
     @DrawableRes val portraitRes: Int,
     val accentColor: Long,
+    val pointsPerLevel: Int,
+    val unlockLevel: Int,
+    val canEquipHelm: Boolean,
     val baseStats: HeroStats,
     val baseHp: Int,
     val baseMp: Int,
     val attackRange: Float,
     val starterWeapon: Item,
     val starterArmor: Item
-)
+) {
+    fun titleForTier(tier: Int): String = when {
+        tier >= 2 -> evo400Title
+        tier == 1 -> evo150Title
+        else -> name
+    }
+}
 
 data class SkillDef(
     val id: String,
@@ -217,6 +251,10 @@ data class MapMeta(
     val id: MapId,
     val name: String,
     val minLevel: Int,
+    val warpLevel: Int,
+    val expRate: Double,
+    val dropZenRate: Double,
+    val dropItemRate: Double,
     val groundPrimary: Long,
     val groundSecondary: Long,
     val safeZoneColor: Long,
@@ -299,9 +337,11 @@ data class SkillVfx(
     val durationMs: Long = 380L
 )
 
-data class LorenciaNpcDef(
+data class MapNpcDef(
     val id: String,
+    val mapId: MapId,
     val name: String,
+    val role: String,
     val subtitle: String,
     val wx: Float,
     val wy: Float
@@ -318,6 +358,7 @@ data class ModItemDef(
     val magic: Int = 0,
     val hpBonus: Int = 0,
     val speedBonus: Int = 0,
+    val wingsTier: Int = 0,
     val classReq: String = "all",
     val colorHex: Long = 0xFFF43F5E,
     val valueZen: Int = 25000
@@ -360,6 +401,23 @@ data class ActiveModRates(
     val dropMul: Double = 1.0,
     val chaosBonus: Int = 0,
     val resetLevel: Int = 400
+)
+
+data class MobileHudSettings(
+    val sfxVolume: Float = 0.8f,
+    val musicVolume: Float = 0.45f,
+    val brightness: Float = 1.0f,
+    val hdGraphics: Boolean = true,
+    val animationsEnabled: Boolean = true,
+    val hudScale: Float = 1.0f,
+    val hudBottomPaddingDp: Float = 6f,
+    val manifestUrl: String = ""
+)
+
+data class ManifestInfo(
+    val version: String = "6.3.1",
+    val notes: String = "Configuración local inicial",
+    val updatedAt: String = "2026-11-16"
 )
 
 data class LanPlayer(

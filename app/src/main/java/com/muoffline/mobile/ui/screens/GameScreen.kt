@@ -21,7 +21,9 @@ fun GameScreen(
     hero: HeroSave,
     viewModel: GameViewModel,
     onOpenMods: () -> Unit,
-    onOpenLan: () -> Unit
+    onOpenLan: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAdmin: () -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -36,6 +38,10 @@ fun GameScreen(
     val heroFacingAngle by viewModel.heroFacingAngle.collectAsStateWithLifecycle()
     val activeModRates by viewModel.activeModRates.collectAsStateWithLifecycle()
     val mods by viewModel.mods.collectAsStateWithLifecycle()
+    val mapCatalog by viewModel.mapCatalog.collectAsStateWithLifecycle()
+    val allNpcs by viewModel.npcs.collectAsStateWithLifecycle()
+    val hudSettings by viewModel.hudSettings.collectAsStateWithLifecycle()
+    val vaultItems by viewModel.vaultItems.collectAsStateWithLifecycle()
 
     val connectedRoom by viewModel.connectedRoom.collectAsStateWithLifecycle()
     val lanPlayers by viewModel.lanPlayers.collectAsStateWithLifecycle()
@@ -47,13 +53,17 @@ fun GameScreen(
 
     var showCharacterDialog by remember { mutableStateOf(false) }
     var showInventoryDialog by remember { mutableStateOf(false) }
+    var showVaultDialog by remember { mutableStateOf(false) }
     var inventoryInitialChaos by remember { mutableStateOf(false) }
-    var activeNpc by remember { mutableStateOf<LorenciaNpcDef?>(null) }
+    var activeNpc by remember { mutableStateOf<MapNpcDef?>(null) }
     var isLandscapeLocked by remember { mutableStateOf(false) }
 
-    val nearbyNpc = remember(hero.mapId, hero.x, hero.y) {
-        if (hero.mapId != MapId.LORENCIA) null
-        else MuCatalog.LORENCIA_NPCS.minByOrNull {
+    val currentMapMeta = mapCatalog[hero.mapId] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(hero.mapId)
+    val npcsOnMap = remember(hero.mapId, allNpcs) {
+        allNpcs.filter { it.mapId == hero.mapId }
+    }
+    val nearbyNpc = remember(hero.x, hero.y, npcsOnMap) {
+        npcsOnMap.minByOrNull {
             hypot((it.wx - hero.x).toDouble(), (it.wy - hero.y).toDouble())
         }?.takeIf {
             hypot((it.wx - hero.x).toDouble(), (it.wy - hero.y).toDouble()) <= 95.0
@@ -64,6 +74,7 @@ fun GameScreen(
         when {
             tradeSession != null -> viewModel.cancelTrade()
             activeNpc != null -> activeNpc = null
+            showVaultDialog -> showVaultDialog = false
             showInventoryDialog -> showInventoryDialog = false
             showCharacterDialog -> showCharacterDialog = false
             else -> viewModel.exitToTitle()
@@ -74,18 +85,24 @@ fun GameScreen(
         GameWorldCanvas(
             hero = hero,
             heroFacingAngle = heroFacingAngle,
+            mapMeta = currentMapMeta,
+            npcsOnMap = npcsOnMap,
             monsters = monsters,
             drops = drops,
             floatingTexts = floatingTexts,
             vfxList = vfxList,
             lanPlayers = lanPlayers,
             lanBosses = lanBosses,
+            hdGraphics = hudSettings.hdGraphics,
+            animationsEnabled = hudSettings.animationsEnabled,
             onTapNpc = { npc ->
-                if (npc.id == "chaos") {
-                    inventoryInitialChaos = true
-                    showInventoryDialog = true
-                } else {
-                    activeNpc = npc
+                when (npc.role) {
+                    "chaos" -> {
+                        inventoryInitialChaos = true
+                        showInventoryDialog = true
+                    }
+                    "vault" -> showVaultDialog = true
+                    else -> activeNpc = npc
                 }
             },
             onTapWorld = { wx, wy -> viewModel.handleTapWorld(wx, wy) }
@@ -93,6 +110,11 @@ fun GameScreen(
 
         GameHudOverlay(
             hero = hero,
+            mapCatalog = mapCatalog,
+            npcsOnMap = npcsOnMap,
+            monsters = monsters,
+            lanPlayers = lanPlayers,
+            hudSettings = hudSettings,
             autoHunt = autoHunt,
             muted = muted,
             isLandscapeLocked = isLandscapeLocked,
@@ -112,6 +134,8 @@ fun GameScreen(
             },
             onOpenMods = onOpenMods,
             onOpenLan = onOpenLan,
+            onOpenSettings = onOpenSettings,
+            onOpenAdmin = onOpenAdmin,
             onToggleLandscape = {
                 val next = !isLandscapeLocked
                 isLandscapeLocked = next
@@ -131,11 +155,13 @@ fun GameScreen(
             onUsePotion = { viewModel.usePotion(it) },
             onCastSkill = { viewModel.executeCombat(it) },
             onTalkNpc = { npc ->
-                if (npc.id == "chaos") {
-                    inventoryInitialChaos = true
-                    showInventoryDialog = true
-                } else {
-                    activeNpc = npc
+                when (npc.role) {
+                    "chaos" -> {
+                        inventoryInitialChaos = true
+                        showInventoryDialog = true
+                    }
+                    "vault" -> showVaultDialog = true
+                    else -> activeNpc = npc
                 }
             },
             onAcceptTrade = { viewModel.acceptIncomingTrade() },
@@ -149,6 +175,7 @@ fun GameScreen(
             hero = hero,
             resetLevel = activeModRates.resetLevel,
             onAddStat = { kind, amt -> viewModel.addStat(kind, amt) },
+            onAdvanceEvolution = { viewModel.advanceEvolutionQuest() },
             onMasterReset = { viewModel.resetHero() },
             onDismiss = { showCharacterDialog = false }
         )
@@ -163,9 +190,19 @@ fun GameScreen(
             onUnequipSlot = { viewModel.unequipSlot(it) },
             onUpgradeWithJewel = { id, jewel -> viewModel.upgradeWithJewel(id, jewel) },
             onChaosUpgrade = { id -> viewModel.chaosUpgrade(id) },
-            onCraftWings = { viewModel.craftWings() },
+            onCraftWingsTier = { tier -> viewModel.craftWingsTier(tier) },
             onSellItem = { id -> viewModel.sellItem(id) },
             onDismiss = { showInventoryDialog = false }
+        )
+    }
+
+    if (showVaultDialog) {
+        VaultDialog(
+            hero = hero,
+            vaultItems = vaultItems,
+            onDeposit = { item -> viewModel.depositToVault(item) },
+            onWithdraw = { item -> viewModel.withdrawFromVault(item) },
+            onDismiss = { showVaultDialog = false }
         )
     }
 
@@ -178,6 +215,9 @@ fun GameScreen(
                 inventoryInitialChaos = true
                 showInventoryDialog = true
             },
+            onOpenVault = { showVaultDialog = true },
+            onAdvanceEvolution = { viewModel.advanceEvolutionQuest() },
+            onRedeemArcherWings = { viewModel.redeemGoldenArcherWings() },
             onDismiss = { activeNpc = null }
         )
     }

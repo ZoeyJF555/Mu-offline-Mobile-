@@ -7,8 +7,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,12 +28,16 @@ fun CharacterDialog(
     hero: HeroSave,
     resetLevel: Int,
     onAddStat: (StatKind, Int) -> Unit,
+    onAdvanceEvolution: () -> Pair<Boolean, String>,
     onMasterReset: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var statusMessage by remember { mutableStateOf<String?>(null) }
     val derived = MuCatalog.computeDerivedHeroStats(hero)
     val classMeta = MuCatalog.CLASS_CATALOG.getValue(hero.classId)
+    val currentTitle = classMeta.titleForTier(hero.evolutionTier)
     val canReset = hero.level >= resetLevel
+    val canEvolve = (hero.evolutionTier == 0 && hero.level >= 150) || (hero.evolutionTier == 1 && hero.level >= 400)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -45,7 +50,7 @@ fun CharacterDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .widthIn(max = 560.dp)
-                .heightIn(max = 620.dp)
+                .heightIn(max = 650.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -60,18 +65,35 @@ fun CharacterDialog(
                 ) {
                     Column {
                         Text(
-                            text = "${hero.name} · ${classMeta.name}",
+                            text = "${hero.name} · $currentTitle",
                             style = MaterialTheme.typography.headlineSmall,
                             color = MuAmberBright
                         )
                         Text(
-                            text = "Nivel ${hero.level} · Resets ${hero.resets} · ${hero.kills} bajas",
+                            text = "Nivel ${hero.level} · Resets ${hero.resets} · ${hero.kills} bajas · +${classMeta.pointsPerLevel} pts/nv",
                             style = MaterialTheme.typography.bodySmall,
                             color = MuTextSecondary
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.testTag("close_character_dialog")) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(id = R.string.cd_close))
+                    }
+                }
+
+                statusMessage?.let { msg ->
+                    Surface(
+                        color = MuStoneCard,
+                        shape = MaterialTheme.shapes.small,
+                        border = BorderStroke(1.dp, MuEmerald.copy(alpha = 0.6f))
+                    ) {
+                        Text(
+                            text = msg,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MuEmerald,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp)
+                        )
                     }
                 }
 
@@ -97,6 +119,58 @@ fun CharacterDialog(
                             StatPill("MP Máx", "${derived.maxMp}", MuSky)
                             StatPill("Velocidad", "${derived.moveSpeed.roundToInt()}", MuTextPrimary)
                         }
+                        hero.equipment.pet?.let { pet ->
+                            Text(
+                                text = "Mascota Activa: ${pet.name} (+${pet.attack} ATK / +${pet.defense} DEF)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MuSky
+                            )
+                        }
+                    }
+                }
+
+                // Evolution Quest Card (Lv 150 / Lv 400)
+                Surface(
+                    color = MuStoneCard,
+                    shape = MaterialTheme.shapes.medium,
+                    border = BorderStroke(1.dp, (if (canEvolve) MuAmberBright else MuBorderSlate).copy(alpha = 0.7f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Evolución de Clase: ${classMeta.name} → ${classMeta.evo150Title} (Nv.150) → ${classMeta.evo400Title} (Nv.400)",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MuAmberBright
+                        )
+                        Button(
+                            onClick = {
+                                val (_, msg) = onAdvanceEvolution()
+                                statusMessage = msg
+                            },
+                            enabled = hero.evolutionTier < 2,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (canEvolve) MuGold else MuObsidian,
+                                contentColor = if (canEvolve) Color(0xFF1B1202) else MuTextSecondary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .testTag("evolution_quest_button")
+                        ) {
+                            Icon(Icons.Rounded.MilitaryTech, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                when (hero.evolutionTier) {
+                                    0 -> if (hero.level >= 150) "Completar Quest Nv.150 (${classMeta.evo150Title})" else "Quest Nv.150 → ${classMeta.evo150Title}"
+                                    1 -> if (hero.level >= 400) "Completar Quest Nv.400 (${classMeta.evo400Title})" else "Quest Nv.400 → ${classMeta.evo400Title}"
+                                    else -> "Evolución Máxima Alcanzada (${classMeta.evo400Title})"
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -115,10 +189,10 @@ fun CharacterDialog(
                     )
                 }
 
-                StatRow("Fuerza (STR)", "Daño físico y espadas", hero.stats.str, hero.statPoints, StatKind.STR, onAddStat)
+                StatRow("Fuerza (STR)", "Daño físico y armas", hero.stats.str, hero.statPoints, StatKind.STR, onAddStat)
                 StatRow("Agilidad (AGI)", "Defensa, velocidad y crítico", hero.stats.agi, hero.statPoints, StatKind.AGI, onAddStat)
                 StatRow("Vitalidad (VIT)", "HP máximo y resistencia", hero.stats.vit, hero.statPoints, StatKind.VIT, onAddStat)
-                StatRow("Energía (ENE)", "Daño mágico y MP máximo", hero.stats.ene, hero.statPoints, StatKind.ENE, onAddStat)
+                StatRow("Energía (ENE)", "Daño mágico, mascotas y MP", hero.stats.ene, hero.statPoints, StatKind.ENE, onAddStat)
 
                 HorizontalDivider(color = MuBorderSlate)
 

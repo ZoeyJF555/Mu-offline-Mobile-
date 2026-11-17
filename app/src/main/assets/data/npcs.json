@@ -1,0 +1,14 @@
+{
+  "npcs": [
+    { "id": "smith", "mapId": "lorencia", "name": "Hanzo, Blacksmith", "role": "shop", "subtitle": "Armas DK/MG", "wx": 420, "wy": 430 },
+    { "id": "armor-lorencia", "mapId": "lorencia", "name": "Lumen, Armaduras", "role": "shop", "subtitle": "Sets Lorencia", "wx": 480, "wy": 405 },
+    { "id": "wizard", "mapId": "lorencia", "name": "Pasi Wizard", "role": "shop", "subtitle": "Bastones y Magia", "wx": 540, "wy": 430 },
+    { "id": "barmaid", "mapId": "lorencia", "name": "Liaman Barmaid", "role": "shop", "subtitle": "Pociones", "wx": 420, "wy": 530 },
+    { "id": "vault-lorencia", "mapId": "lorencia", "name": "Guardia del Baúl", "role": "vault", "subtitle": "Almacén Seguro", "wx": 540, "wy": 530 },
+    { "id": "marlon", "mapId": "lorencia", "name": "Marlon (Evolución)", "role": "quest", "subtitle": "Quest Nv. 150+ y 400+", "wx": 480, "wy": 555 },
+    { "id": "chaos", "mapId": "noria", "name": "Chaos Goblin", "role": "chaos", "subtitle": "Alas S1/S2/S3 y +13", "wx": 535, "wy": 455 },
+    { "id": "elf-merchant", "mapId": "noria", "name": "Eo the Craftsman", "role": "shop", "subtitle": "Arcos y Sets Elfa", "wx": 430, "wy": 455 },
+    { "id": "golden-archer", "mapId": "devias", "name": "Golden Archer", "role": "archer", "subtitle": "Talismanes por Alas S2", "wx": 535, "wy": 455 },
+    { "id": "devias-potion", "mapId": "devias", "name": "Zienna, Mercader", "role": "shop", "subtitle": "Pociones y Armas Devias", "wx": 430, "wy": 455 }
+  ]
+}

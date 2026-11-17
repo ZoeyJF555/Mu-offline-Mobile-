@@ -1,5 +1,13 @@
 package com.muoffline.mobile.ui.dialogs
 
+import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,12 +19,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.muoffline.mobile.R
+import com.muoffline.mobile.lan.LanMultiplayerManager
 import com.muoffline.mobile.model.*
 import com.muoffline.mobile.ui.theme.*
 
@@ -39,8 +50,60 @@ fun LanServerDialog(
     onStartEvent: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var roomCode by remember { mutableStateOf("LORENCIA-01") }
     var targetIpPort by remember { mutableStateOf("192.168.43.1:47777") }
+
+    val btManager = remember { context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager }
+    val btAdapter: BluetoothAdapter? = remember(btManager) { btManager?.adapter }
+    var hasBtPerm by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+    var pairedBtDevices by remember { mutableStateOf<List<String>>(emptyList()) }
+    var btStatusMsg by remember { mutableStateOf<String?>(null) }
+
+    fun refreshBluetoothDevices() {
+        if (btAdapter == null) {
+            btStatusMsg = "Este dispositivo no tiene adaptador Bluetooth."
+            return
+        }
+        if (!hasBtPerm) {
+            btStatusMsg = "Se requieren permisos Bluetooth para listar dispositivos cercanos."
+            return
+        }
+        runCatching {
+            val bonded = btAdapter.bondedDevices.orEmpty()
+            pairedBtDevices = bonded.mapNotNull { dev ->
+                runCatching { "${dev.name ?: "Dispositivo"} (${dev.address})" }.getOrNull()
+            }
+            btStatusMsg = if (!btAdapter.isEnabled) {
+                "Bluetooth apagado. Actívalo para detectar mandos o pares."
+            } else if (pairedBtDevices.isEmpty()) {
+                "Bluetooth listo (${pairedBtDevices.size} emparejados). Empareja en Ajustes o usa Hotspot Wi-Fi."
+            } else {
+                "Bluetooth activo: ${pairedBtDevices.size} dispositivo(s) emparejados."
+            }
+        }.onFailure {
+            btStatusMsg = "No se pudo consultar dispositivos Bluetooth."
+        }
+    }
+
+    val btPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        hasBtPerm = grants.values.all { it }
+        refreshBluetoothDevices()
+    }
+
+    LaunchedEffect(hasBtPerm) {
+        if (hasBtPerm) refreshBluetoothDevices()
+    }
 
     DisposableEffect(Unit) {
         onStartDiscovery()
@@ -71,11 +134,18 @@ fun LanServerDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
-                        Text("Servidor Wi-Fi LAN", style = MaterialTheme.typography.headlineSmall, color = MuSky)
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (connectedRoom != null) "Sala: $connectedRoom (${hostEndpoint ?: "local"})"
-                            else "IP Local: ${localIps.joinToString(", ").ifEmpty { "Conecta al Wi-Fi o Hotspot" }}",
+                            text = "Multijugador Wi-Fi LAN / Bluetooth",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MuSky
+                        )
+                        Text(
+                            text = if (connectedRoom != null) {
+                                "Sala: $connectedRoom (${hostEndpoint ?: "local"}) · Máx. ${LanMultiplayerManager.MAX_PLAYERS} jugadores"
+                            } else {
+                                "Máx. ${LanMultiplayerManager.MAX_PLAYERS} jugadores · IP: ${localIps.joinToString(", ").ifEmpty { "Conecta al Wi-Fi o Hotspot" }}"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MuTextSecondary
                         )
@@ -113,7 +183,7 @@ fun LanServerDialog(
                                 border = BorderStroke(1.dp, MuBorderSlate)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("Crear o Unirse a una Sala Wi-Fi", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
+                                    Text("Crear o Unirse a una Sala Wi-Fi (hasta 12 jugadores)", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
                                     OutlinedTextField(
                                         value = roomCode,
                                         onValueChange = { roomCode = it.uppercase() },
@@ -140,7 +210,7 @@ fun LanServerDialog(
                                     OutlinedTextField(
                                         value = targetIpPort,
                                         onValueChange = { targetIpPort = it },
-                                        label = { Text("IP:Puerto del Host (ej. 192.168.1.15:47777)") },
+                                        label = { Text("IP:Puerto del Host (ej. 192.168.43.1:47777)") },
                                         singleLine = true,
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -156,6 +226,51 @@ fun LanServerDialog(
                                         Icon(Icons.Rounded.Wifi, contentDescription = null)
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text("Unirse por IP")
+                                    }
+                                }
+                            }
+                        }
+
+                        // Bluetooth Local Panel
+                        item {
+                            Surface(
+                                color = MuStoneCard,
+                                shape = MaterialTheme.shapes.medium,
+                                border = BorderStroke(1.dp, MuPurple.copy(alpha = 0.55f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(Icons.Rounded.Bluetooth, contentDescription = null, tint = MuSky)
+                                            Text("Bluetooth Local", style = MaterialTheme.typography.titleMedium, color = MuSky)
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                if (!hasBtPerm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                                    btPermissionLauncher.launch(
+                                                        arrayOf(
+                                                            Manifest.permission.BLUETOOTH_CONNECT,
+                                                            Manifest.permission.BLUETOOTH_SCAN
+                                                        )
+                                                    )
+                                                } else {
+                                                    refreshBluetoothDevices()
+                                                }
+                                            },
+                                            modifier = Modifier.testTag("bluetooth_scan_button")
+                                        ) {
+                                            Text(if (hasBtPerm) "Actualizar" else "Permitir BT")
+                                        }
+                                    }
+                                    btStatusMsg?.let { msg ->
+                                        Text(msg, style = MaterialTheme.typography.bodySmall, color = MuTextSecondary)
+                                    }
+                                    pairedBtDevices.take(5).forEach { dev ->
+                                        Text("• $dev", style = MaterialTheme.typography.bodySmall, color = MuTextPrimary)
                                     }
                                 }
                             }
@@ -208,7 +323,7 @@ fun LanServerDialog(
                                 border = BorderStroke(1.dp, MuEmerald.copy(alpha = 0.6f))
                             ) {
                                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Eventos Cooperativos LAN", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
+                                    Text("Eventos Cooperativos LAN (Season 6)", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Button(
                                             onClick = { onStartEvent("golden-invasion") },
@@ -225,6 +340,22 @@ fun LanServerDialog(
                                             Text("Blood Castle")
                                         }
                                     }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { onStartEvent("devil-square") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MuPurple, contentColor = Color.White),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Devil Square")
+                                        }
+                                        Button(
+                                            onClick = { onStartEvent("chaos-castle") },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MuSky, contentColor = Color(0xFF041C2C)),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("Chaos Castle")
+                                        }
+                                    }
                                     OutlinedButton(
                                         onClick = onLeaveRoom,
                                         modifier = Modifier.fillMaxWidth()
@@ -236,10 +367,11 @@ fun LanServerDialog(
                         }
 
                         item {
-                            Text("Jugadores en Sala (${players.size})", style = MaterialTheme.typography.titleMedium, color = MuTextPrimary)
+                            Text("Jugadores en Sala (${players.size}/${LanMultiplayerManager.MAX_PLAYERS})", style = MaterialTheme.typography.titleMedium, color = MuTextPrimary)
                         }
                         items(players, key = { it.id }) { p ->
                             val isSelf = p.id == localHeroId
+                            val mapName = MuCatalog.DEFAULT_MAP_CATALOG[p.mapId]?.name ?: p.mapId.name
                             Surface(
                                 color = MuStoneCard,
                                 shape = MaterialTheme.shapes.small,
@@ -259,7 +391,7 @@ fun LanServerDialog(
                                             color = MuTextPrimary
                                         )
                                         Text(
-                                            text = "${MuCatalog.CLASS_CATALOG.getValue(p.classId).name} · Nv.${p.level} · ${MuCatalog.MAP_CATALOG.getValue(p.mapId).name}",
+                                            text = "${MuCatalog.CLASS_CATALOG.getValue(p.classId).name} · Nv.${p.level} · $mapName",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MuTextSecondary
                                         )

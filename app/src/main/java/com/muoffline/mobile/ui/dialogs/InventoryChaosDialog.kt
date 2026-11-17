@@ -29,11 +29,11 @@ fun InventoryChaosDialog(
     hero: HeroSave,
     chaosBonus: Int,
     initialTabChaos: Boolean = false,
-    onEquipItem: (Item) -> Unit,
+    onEquipItem: (Item) -> String?,
     onUnequipSlot: (ItemSlot) -> Unit,
     onUpgradeWithJewel: (String, JewelType) -> String,
     onChaosUpgrade: (String) -> Pair<Boolean, String>,
-    onCraftWings: () -> Pair<Boolean, String>,
+    onCraftWingsTier: (Int) -> Pair<Boolean, String>,
     onSellItem: (String) -> String,
     onDismiss: () -> Unit
 ) {
@@ -43,7 +43,7 @@ fun InventoryChaosDialog(
 
     val allEquipmentSlots = listOf(
         ItemSlot.WEAPON, ItemSlot.OFFHAND, ItemSlot.ARMOR,
-        ItemSlot.HELM, ItemSlot.WINGS, ItemSlot.PENDANT
+        ItemSlot.HELM, ItemSlot.WINGS, ItemSlot.PENDANT, ItemSlot.PET
     )
     val allItems = hero.equipment.allEquipped() + hero.inventory
     val selectedItem = allItems.firstOrNull { it.id == selectedItemId }
@@ -52,6 +52,8 @@ fun InventoryChaosDialog(
     val blessCount = hero.inventory.filter { it.jewelType == JewelType.BLESS }.sumOf { it.quantity }
     val soulCount = hero.inventory.filter { it.jewelType == JewelType.SOUL }.sumOf { it.quantity }
     val chaosCount = hero.inventory.filter { it.jewelType == JewelType.CHAOS }.sumOf { it.quantity }
+    val lifeCount = hero.inventory.filter { it.jewelType == JewelType.LIFE }.sumOf { it.quantity }
+    val creationCount = hero.inventory.filter { it.jewelType == JewelType.CREATION }.sumOf { it.quantity }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -77,10 +79,10 @@ fun InventoryChaosDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Mochila y Chaos Machine", style = MaterialTheme.typography.headlineSmall, color = MuAmberBright)
                         Text(
-                            text = "${hero.zen} Zen · Bless: $blessCount · Soul: $soulCount · Chaos: $chaosCount",
+                            text = "${hero.zen} Zen · B:$blessCount S:$soulCount C:$chaosCount L:$lifeCount Cr:$creationCount",
                             style = MaterialTheme.typography.labelMedium,
                             color = MuTextSecondary
                         )
@@ -147,6 +149,7 @@ fun InventoryChaosDialog(
                         }
                         items(allEquipmentSlots) { slot ->
                             val eq = hero.equipment.getSlot(slot)
+                            val blockedHelm = slot == ItemSlot.HELM && !MuCatalog.CLASS_CATALOG.getValue(hero.classId).canEquipHelm
                             Surface(
                                 color = if (eq != null && selectedItemId == eq.id) MuGold.copy(alpha = 0.14f) else MuStoneCard,
                                 shape = MaterialTheme.shapes.small,
@@ -174,7 +177,12 @@ fun InventoryChaosDialog(
                                             Text("Quitar")
                                         }
                                     } else {
-                                        Text("Vacío", style = MaterialTheme.typography.bodySmall, color = MuTextSecondary, modifier = Modifier.weight(1f))
+                                        Text(
+                                            text = if (blockedHelm) "No disponible para MG" else "Vacío",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MuTextSecondary,
+                                            modifier = Modifier.weight(1f)
+                                        )
                                     }
                                 }
                             }
@@ -186,6 +194,7 @@ fun InventoryChaosDialog(
                         }
                         items(hero.inventory, key = { it.id }) { item ->
                             val isSel = selectedItemId == item.id
+                            val canEquip = item.slot != ItemSlot.JEWEL && item.slot != ItemSlot.POTION && item.slot != ItemSlot.TALISMAN
                             Surface(
                                 color = if (isSel) MuGold.copy(alpha = 0.16f) else MuStoneCard,
                                 shape = MaterialTheme.shapes.small,
@@ -216,9 +225,12 @@ fun InventoryChaosDialog(
                                             color = MuTextSecondary
                                         )
                                     }
-                                    if (item.slot != ItemSlot.JEWEL && item.slot != ItemSlot.POTION) {
+                                    if (canEquip) {
                                         OutlinedButton(
-                                            onClick = { onEquipItem(item) },
+                                            onClick = {
+                                                val err = onEquipItem(item)
+                                                if (err != null) statusMessage = err
+                                            },
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                         ) {
                                             Text("Equipar")
@@ -231,6 +243,9 @@ fun InventoryChaosDialog(
 
                     // Inspector Footer
                     if (selectedItem != null) {
+                        val isUpgradeable = selectedItem.slot != ItemSlot.JEWEL &&
+                            selectedItem.slot != ItemSlot.POTION &&
+                            selectedItem.slot != ItemSlot.TALISMAN
                         Surface(
                             color = MuObsidian,
                             shape = MaterialTheme.shapes.medium,
@@ -249,7 +264,7 @@ fun InventoryChaosDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    if (selectedItem.slot != ItemSlot.JEWEL && selectedItem.slot != ItemSlot.POTION) {
+                                    if (isUpgradeable) {
                                         if (selectedItem.plus < 6) {
                                             Button(
                                                 onClick = { statusMessage = onUpgradeWithJewel(selectedItem.id, JewelType.BLESS) },
@@ -270,6 +285,14 @@ fun InventoryChaosDialog(
                                                 Text("+1 Soul")
                                             }
                                         }
+                                        Button(
+                                            onClick = { statusMessage = onUpgradeWithJewel(selectedItem.id, JewelType.LIFE) },
+                                            enabled = lifeCount > 0,
+                                            colors = ButtonDefaults.buttonColors(containerColor = MuEmerald, contentColor = Color(0xFF022016)),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text("+Life")
+                                        }
                                     }
                                     if (!selectedIsEquipped) {
                                         OutlinedButton(
@@ -289,46 +312,50 @@ fun InventoryChaosDialog(
                 } else {
                     // CHAOS MACHINE TAB
                     val chaosCandidates = allItems.filter {
-                        it.slot != ItemSlot.JEWEL && it.slot != ItemSlot.POTION && it.plus in 9..12
+                        it.slot != ItemSlot.JEWEL &&
+                            it.slot != ItemSlot.POTION &&
+                            it.slot != ItemSlot.TALISMAN &&
+                            it.plus in 9..12
                     }
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         item {
-                            Surface(
-                                color = MuStoneCard,
-                                shape = MaterialTheme.shapes.medium,
-                                border = BorderStroke(1.dp, MuGold.copy(alpha = 0.6f))
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("Forjar Alas Nivel 2 (Wings)", style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
-                                    Text(
-                                        text = "Costo: 1 Jewel of Chaos + 1 Jewel of Bless + 5,000 Zen · Tasa éxito: ${(70 + chaosBonus).coerceAtMost(95)}%",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MuTextSecondary
-                                    )
-                                    Button(
-                                        onClick = {
-                                            val (_, msg) = onCraftWings()
-                                            statusMessage = msg
-                                        },
-                                        enabled = chaosCount > 0 && blessCount > 0 && hero.zen >= 5000,
-                                        colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202)),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(min = 48.dp)
-                                            .testTag("craft_wings_button")
-                                    ) {
-                                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Combinar Alas en Chaos Goblin")
-                                    }
+                            WingsCraftCard(
+                                title = "Forjar Alas Nivel 1 (Satan / Elf / Heaven)",
+                                costText = "1 Chaos + 2,500 Zen · Éxito ${(82 + chaosBonus).coerceAtMost(95)}%",
+                                enabled = chaosCount > 0 && hero.zen >= 2500,
+                                tag = "craft_wings_s1_button",
+                                onClick = {
+                                    val (_, msg) = onCraftWingsTier(1)
+                                    statusMessage = msg
                                 }
-                            }
+                            )
+                        }
+                        item {
+                            WingsCraftCard(
+                                title = "Forjar Alas Nivel 2 (Dragon / Soul / Cape of Lord)",
+                                costText = "1 Chaos + 1 Bless + 5,000 Zen · Éxito ${(70 + chaosBonus).coerceAtMost(95)}%",
+                                enabled = chaosCount > 0 && blessCount > 0 && hero.zen >= 5000,
+                                tag = "craft_wings_button",
+                                onClick = {
+                                    val (_, msg) = onCraftWingsTier(2)
+                                    statusMessage = msg
+                                }
+                            )
+                        }
+                        item {
+                            WingsCraftCard(
+                                title = "Forjar Alas Nivel 3 (Wings of Storm · Mítica)",
+                                costText = "1 Chaos + 1 Bless + 1 Creation + 12,000 Zen · Éxito ${(55 + chaosBonus).coerceAtMost(95)}%",
+                                enabled = chaosCount > 0 && blessCount > 0 && creationCount > 0 && hero.zen >= 12000,
+                                tag = "craft_wings_s3_button",
+                                onClick = {
+                                    val (_, msg) = onCraftWingsTier(3)
+                                    statusMessage = msg
+                                }
+                            )
                         }
 
                         item {
@@ -390,6 +417,42 @@ fun InventoryChaosDialog(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WingsCraftCard(
+    title: String,
+    costText: String,
+    enabled: Boolean,
+    tag: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = MuStoneCard,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MuGold.copy(alpha = 0.55f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MuAmberBright)
+            Text(costText, style = MaterialTheme.typography.bodySmall, color = MuTextSecondary)
+            Button(
+                onClick = onClick,
+                enabled = enabled,
+                colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag(tag)
+            ) {
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Combinar en Chaos Goblin")
             }
         }
     }

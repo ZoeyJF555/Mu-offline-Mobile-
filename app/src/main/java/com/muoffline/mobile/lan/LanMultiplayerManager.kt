@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build
-import com.muoffline.mobile.data.LocalDatabase
+import com.muoffline.mobile.data.JsonDataStore
 import com.muoffline.mobile.model.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -58,6 +58,7 @@ class LanMultiplayerManager(context: Context) {
 
     companion object {
         const val DEFAULT_PORT = 47777
+        const val MAX_PLAYERS = 12
         const val SERVICE_TYPE = "_muoffline._tcp."
     }
 
@@ -212,7 +213,6 @@ class LanMultiplayerManager(context: Context) {
                     }
                 }
 
-                // Connect local client to our own loopback server
                 connectInternal("127.0.0.1", port, code, hero, hosting = true)
             } catch (e: Exception) {
                 _status.value = LanConnectionStatus.ERROR
@@ -299,7 +299,7 @@ class LanMultiplayerManager(context: Context) {
             put("mapId", hero.mapId.wire)
             put("level", hero.level)
             put("resets", hero.resets)
-            put("wingsTier", if (hero.equipment.wings == null) 0 else if (hero.equipment.wings.rarity == ItemRarity.MYTHIC) 2 else 1)
+            put("wingsTier", hero.equipment.wings?.wingsTier?.coerceAtLeast(1) ?: 0)
             put("weaponPlus", hero.equipment.weapon?.plus ?: 0)
             put("hp", hero.hp)
             put("maxHp", hero.maxHp)
@@ -364,7 +364,7 @@ class LanMultiplayerManager(context: Context) {
         sendJson(JSONObject().apply {
             put("type", "trade:update")
             put("tradeId", tradeId)
-            put("items", JSONArray().apply { items.forEach { put(LocalDatabase.encodeItem(it)) } })
+            put("items", JSONArray().apply { items.forEach { put(JsonDataStore.encodeItem(it)) } })
             put("zen", zen)
         })
     }
@@ -437,10 +437,10 @@ class LanMultiplayerManager(context: Context) {
     private fun initDefaultBosses() {
         serverBosses.clear()
         val defaults = listOf(
-            LanBossState("lan-boss-lorencia", "Red Dragon", MapId.LORENCIA, 1800, 1800, 780f, 680f, 0L),
-            LanBossState("lan-boss-dungeon", "Gorgon", MapId.DUNGEON, 4200, 4200, 640f, 520f, 0L),
-            LanBossState("lan-boss-devias", "Ice Queen", MapId.DEVIAS, 6500, 6500, 720f, 460f, 0L),
-            LanBossState("lan-boss-noria", "Golden Tantallos", MapId.NORIA, 9000, 9000, 680f, 640f, 0L)
+            LanBossState("lan-boss-lorencia", "Golden Dragon", MapId.LORENCIA, 1800, 1800, 780f, 680f, 0L),
+            LanBossState("lan-boss-dungeon", "Arcángel Caído (Blood Castle)", MapId.DUNGEON1, 4200, 4200, 640f, 520f, 0L),
+            LanBossState("lan-boss-losttower", "Balrog Supremo (Devil Square)", MapId.LOSTTOWER, 7200, 7200, 700f, 500f, 0L),
+            LanBossState("lan-boss-kanturu", "Guardián del Caos (Chaos Castle)", MapId.KANTURU, 11500, 11500, 680f, 640f, 0L)
         )
         defaults.forEach { serverBosses[it.id] = it }
     }
@@ -458,6 +458,13 @@ class LanMultiplayerManager(context: Context) {
                 val type = msg.optString("type")
 
                 if (type == "room:join") {
+                    if (peers.size >= MAX_PLAYERS) {
+                        sendPeer(writer, JSONObject().apply {
+                            put("type", "room:full")
+                            put("maxPlayers", MAX_PLAYERS)
+                        })
+                        break
+                    }
                     val pObj = msg.optJSONObject("player") ?: JSONObject()
                     val pid = pObj.optString("id").ifBlank { MuCatalog.newUid("p") }
                     val state = decodeLanPlayer(pObj.put("id", pid))
@@ -561,13 +568,13 @@ class LanMultiplayerManager(context: Context) {
                     "event:start" -> {
                         val kind = msg.optString("eventType")
                         val now = System.currentTimeMillis()
-                        val ev = if (kind == "blood-castle") {
-                            LanEventState("ev-$now", "Blood Castle Cooperativo", MapId.DUNGEON, true, now + 90_000L, currentPeer.state.name, 12000)
-                        } else {
-                            LanEventState("ev-$now", "Invasión Dorada de Lorencia", MapId.LORENCIA, true, now + 90_000L, currentPeer.state.name, 8000)
+                        val (ev, bossId) = when (kind) {
+                            "blood-castle" -> LanEventState("ev-$now", "Blood Castle", MapId.DUNGEON1, true, now + 90_000L, currentPeer.state.name, 12000) to "lan-boss-dungeon"
+                            "devil-square" -> LanEventState("ev-$now", "Devil Square", MapId.LOSTTOWER, true, now + 90_000L, currentPeer.state.name, 18000) to "lan-boss-losttower"
+                            "chaos-castle" -> LanEventState("ev-$now", "Chaos Castle", MapId.KANTURU, true, now + 90_000L, currentPeer.state.name, 25000) to "lan-boss-kanturu"
+                            else -> LanEventState("ev-$now", "Invasión Dorada", MapId.LORENCIA, true, now + 90_000L, currentPeer.state.name, 8500) to "lan-boss-lorencia"
                         }
                         serverActiveEvent = ev
-                        val bossId = if (kind == "blood-castle") "lan-boss-dungeon" else "lan-boss-lorencia"
                         serverBosses[bossId]?.let { b ->
                             val reset = b.copy(hp = b.maxHp, respawnAt = 0L)
                             serverBosses[bossId] = reset
@@ -797,9 +804,13 @@ class LanMultiplayerManager(context: Context) {
                     partnerName = msg.optString("partnerName", "Jugador")
                 )
             )
+            "room:full" -> {
+                _status.value = LanConnectionStatus.ERROR
+                _error.value = "Sala llena (máximo $MAX_PLAYERS jugadores)."
+            }
             "trade:partner_updated" -> {
                 val arr = msg.optJSONArray("items") ?: JSONArray()
-                val items = (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(LocalDatabase::decodeItem) }
+                val items = (0 until arr.length()).mapNotNull { arr.optJSONObject(it)?.let(JsonDataStore::decodeItem) }
                 _events.tryEmit(LanIncomingEvent.TradePartnerUpdated(msg.optString("tradeId"), items, msg.optInt("zen", 0)))
             }
             "trade:partner_confirmed" -> _events.tryEmit(LanIncomingEvent.TradePartnerConfirmed(msg.optString("tradeId")))
@@ -807,8 +818,8 @@ class LanMultiplayerManager(context: Context) {
             "trade:completed" -> {
                 val recArr = msg.optJSONArray("receivedItems") ?: JSONArray()
                 val givArr = msg.optJSONArray("givenItems") ?: JSONArray()
-                val rec = (0 until recArr.length()).mapNotNull { recArr.optJSONObject(it)?.let(LocalDatabase::decodeItem) }
-                val giv = (0 until givArr.length()).mapNotNull { givArr.optJSONObject(it)?.let(LocalDatabase::decodeItem) }
+                val rec = (0 until recArr.length()).mapNotNull { recArr.optJSONObject(it)?.let(JsonDataStore::decodeItem) }
+                val giv = (0 until givArr.length()).mapNotNull { givArr.optJSONObject(it)?.let(JsonDataStore::decodeItem) }
                 _events.tryEmit(
                     LanIncomingEvent.TradeCompleted(
                         receivedItems = rec,
@@ -844,7 +855,7 @@ class LanMultiplayerManager(context: Context) {
             x = hero.x,
             y = hero.y,
             dir = 0f,
-            wingsTier = if (hero.equipment.wings == null) 0 else if (hero.equipment.wings.rarity == ItemRarity.MYTHIC) 2 else 1,
+            wingsTier = hero.equipment.wings?.wingsTier?.coerceAtLeast(1) ?: 0,
             weaponPlus = hero.equipment.weapon?.plus ?: 0,
             hp = hero.hp,
             maxHp = hero.maxHp

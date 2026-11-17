@@ -1,0 +1,17 @@
+{
+  "wings": [
+    { "id": "wings-s1-satan", "name": "Wings of Satan (S1)", "tier": 1, "attack": 22, "magic": 22, "defense": 18, "speed": 14, "valueZen": 18000 },
+    { "id": "wings-s1-heaven", "name": "Wings of Heaven (S1)", "tier": 1, "attack": 20, "magic": 26, "defense": 18, "speed": 14, "valueZen": 18000 },
+    { "id": "wings-s2-dragon", "name": "Wings of Dragon (S2)", "tier": 2, "attack": 42, "magic": 42, "defense": 34, "speed": 22, "valueZen": 32000 },
+    { "id": "wings-s2-soul", "name": "Wings of Soul (S2)", "tier": 2, "attack": 38, "magic": 48, "defense": 32, "speed": 22, "valueZen": 32000 },
+    { "id": "wings-s2-spirits", "name": "Wings of Spirits (S2)", "tier": 2, "attack": 44, "magic": 36, "defense": 34, "speed": 24, "valueZen": 32000 },
+    { "id": "wings-s3-storm", "name": "Wings of Storm (S3)", "tier": 3, "attack": 74, "magic": 74, "defense": 58, "speed": 30, "valueZen": 68000 }
+  ],
+  "jewels": [
+    { "id": "jewel-bless", "name": "Jewel of Bless", "valueZen": 4500 },
+    { "id": "jewel-soul", "name": "Jewel of Soul", "valueZen": 6000 },
+    { "id": "jewel-chaos", "name": "Jewel of Chaos", "valueZen": 8500 },
+    { "id": "jewel-life", "name": "Jewel of Life", "valueZen": 9500 },
+    { "id": "jewel-creation", "name": "Jewel of Creation", "valueZen": 12000 }
+  ]
+}

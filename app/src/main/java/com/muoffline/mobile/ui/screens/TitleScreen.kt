@@ -35,16 +35,20 @@ fun TitleScreen(
     heroes: List<HeroSave>,
     activeModsCount: Int,
     lanConnectedRoom: String?,
+    maxHeroLevel: Int,
+    manifestVersion: String,
     onSelectHero: (HeroSave) -> Unit,
-    onCreateHero: (String, ClassId) -> Unit,
+    onCreateHero: (String, ClassId) -> String?,
     onDeleteHero: (String) -> Unit,
     onOpenMods: () -> Unit,
     onOpenLan: () -> Unit,
+    onOpenAdmin: () -> Unit,
     onOpenCredits: () -> Unit,
     onLogout: () -> Unit
 ) {
     var selectedClass by remember { mutableStateOf(ClassId.DK) }
     var heroName by remember { mutableStateOf("") }
+    var creationFeedback by remember { mutableStateOf<String?>(null) }
     var pendingDelete by remember { mutableStateOf<HeroSave?>(null) }
 
     Box(
@@ -64,7 +68,7 @@ fun TitleScreen(
                 .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Top bar
             Surface(
@@ -102,7 +106,7 @@ fun TitleScreen(
                                     color = MuAmberBright
                                 )
                                 Text(
-                                    text = "Cuenta: $accountId · Guardado SQLite Local",
+                                    text = "Cuenta: $accountId · JSON Plano v$manifestVersion (Sin SQL)",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MuTextSecondary
                                 )
@@ -132,8 +136,8 @@ fun TitleScreen(
                                 .heightIn(min = 48.dp)
                                 .testTag("title_mods_button")
                         ) {
-                            Icon(Icons.Rounded.Extension, contentDescription = null, modifier = Modifier.size(18.dp), tint = MuGold)
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(Icons.Rounded.Extension, contentDescription = null, modifier = Modifier.size(16.dp), tint = MuGold)
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text("Mods ($activeModsCount)", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
 
@@ -148,15 +152,28 @@ fun TitleScreen(
                             Icon(
                                 Icons.Rounded.Wifi,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(16.dp),
                                 tint = if (lanConnectedRoom != null) MuEmerald else MuSky
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = lanConnectedRoom ?: "LAN Wi-Fi",
+                                text = lanConnectedRoom ?: "LAN / BT",
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                        }
+
+                        OutlinedButton(
+                            onClick = onOpenAdmin,
+                            border = BorderStroke(1.dp, MuPurple.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("title_admin_button")
+                        ) {
+                            Icon(Icons.Rounded.AdminPanelSettings, contentDescription = null, modifier = Modifier.size(16.dp), tint = MuPurple)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Admin", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
 
                         OutlinedButton(
@@ -172,36 +189,24 @@ fun TitleScreen(
                 }
             }
 
-            // Saved Heroes Section
+            // Classic 5-Slot Saved Heroes Section
             Text(
-                text = stringResource(id = R.string.title_choose_hero),
+                text = "Selección de Personaje (${heroes.size}/5 Slots)",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MuTextPrimary
             )
 
-            if (heroes.isEmpty()) {
-                Surface(
-                    color = MuAbyssSlate,
-                    shape = MaterialTheme.shapes.medium,
-                    border = BorderStroke(1.dp, MuBorderSlate),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Aún no tienes héroes en esta cuenta. Elige una clase abajo para comenzar en Lorencia.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MuTextSecondary,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    heroes.forEach { hero ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (slotIndex in 0 until 5) {
+                    val hero = heroes.getOrNull(slotIndex)
+                    if (hero != null) {
                         val classMeta = MuCatalog.CLASS_CATALOG.getValue(hero.classId)
-                        val mapMeta = MuCatalog.MAP_CATALOG.getValue(hero.mapId)
+                        val mapMeta = MuCatalog.DEFAULT_MAP_CATALOG[hero.mapId] ?: MuCatalog.DEFAULT_MAP_CATALOG.getValue(MapId.LORENCIA)
+                        val title = classMeta.titleForTier(hero.evolutionTier)
                         Surface(
                             color = MuStoneCard,
                             shape = MaterialTheme.shapes.large,
-                            border = BorderStroke(1.dp, Color(classMeta.accentColor).copy(alpha = 0.45f)),
+                            border = BorderStroke(1.dp, Color(classMeta.accentColor).copy(alpha = 0.5f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -216,7 +221,7 @@ fun TitleScreen(
                                     contentDescription = hero.name,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(64.dp)
+                                        .size(58.dp)
                                         .clip(RoundedCornerShape(10.dp))
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
@@ -228,7 +233,7 @@ fun TitleScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${classMeta.name} · Nv ${hero.level} · RR ${hero.resets}",
+                                        text = "$title · Nv ${hero.level} · RR ${hero.resets}",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = Color(classMeta.accentColor)
                                     )
@@ -258,11 +263,25 @@ fun TitleScreen(
                                 }
                             }
                         }
+                    } else {
+                        Surface(
+                            color = MuObsidian.copy(alpha = 0.6f),
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, MuBorderSlate.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Slot ${slotIndex + 1} vacío — Crea un héroe abajo para llenarlo",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MuTextSecondary,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            // Create New Hero Section
+            // Create New Hero Section (5 Classes)
             Surface(
                 color = MuAbyssSlate,
                 shape = MaterialTheme.shapes.large,
@@ -271,41 +290,44 @@ fun TitleScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Forjar Nuevo Héroe",
+                        text = "Crear Nuevo Héroe (Season 6 Ep 3)",
                         style = MaterialTheme.typography.headlineSmall,
                         color = MuAmberBright
                     )
 
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val isWide = maxWidth >= 620.dp
-                        if (isWide) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                ClassId.entries.forEach { cid ->
-                                    ClassCard(
-                                        meta = MuCatalog.CLASS_CATALOG.getValue(cid),
-                                        selected = selectedClass == cid,
-                                        onClick = { selectedClass = cid },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                ClassId.entries.forEach { cid ->
-                                    ClassCard(
-                                        meta = MuCatalog.CLASS_CATALOG.getValue(cid),
-                                        selected = selectedClass == cid,
-                                        onClick = { selectedClass = cid },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ClassId.entries.forEach { cid ->
+                            val meta = MuCatalog.CLASS_CATALOG.getValue(cid)
+                            val unlocked = maxHeroLevel >= meta.unlockLevel
+                            ClassCard(
+                                meta = meta,
+                                selected = selectedClass == cid,
+                                unlocked = unlocked,
+                                onClick = {
+                                    selectedClass = cid
+                                    creationFeedback = null
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    creationFeedback?.let { err ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                text = err,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp)
+                            )
                         }
                     }
 
@@ -329,9 +351,15 @@ fun TitleScreen(
                                 val chosen = heroName.trim().ifEmpty {
                                     MuCatalog.CLASS_CATALOG.getValue(selectedClass).name
                                 }
-                                onCreateHero(chosen, selectedClass)
-                                heroName = ""
+                                val err = onCreateHero(chosen, selectedClass)
+                                if (err != null) {
+                                    creationFeedback = err
+                                } else {
+                                    creationFeedback = null
+                                    heroName = ""
+                                }
                             },
+                            enabled = heroes.size < 5 && maxHeroLevel >= MuCatalog.CLASS_CATALOG.getValue(selectedClass).unlockLevel,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MuGold,
                                 contentColor = Color(0xFF1B1202)
@@ -354,7 +382,7 @@ fun TitleScreen(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("Eliminar a ${heroToDelete.name}") },
-            text = { Text("Esta acción borrará permanentemente su equipo, joyas y resets locales.") },
+            text = { Text("Esta acción borrará permanentemente su archivo JSON local de progreso.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -378,6 +406,7 @@ fun TitleScreen(
 private fun ClassCard(
     meta: ClassMeta,
     selected: Boolean,
+    unlocked: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -400,12 +429,30 @@ private fun ClassCard(
                 contentDescription = meta.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(54.dp)
                     .clip(RoundedCornerShape(8.dp))
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text(meta.name, style = MaterialTheme.typography.titleMedium, color = MuTextPrimary)
-                Text(meta.title, style = MaterialTheme.typography.labelMedium, color = accent)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(meta.name, style = MaterialTheme.typography.titleMedium, color = MuTextPrimary)
+                    if (!unlocked) {
+                        Surface(
+                            color = MuCrimson.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Requiere Nv.${meta.unlockLevel}+",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MuCrimson,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Text("${meta.evo150Title} → ${meta.evo400Title}", style = MaterialTheme.typography.labelMedium, color = accent)
                 Text(meta.role, style = MaterialTheme.typography.bodySmall, color = MuTextSecondary)
                 Text(
                     text = "STR ${meta.baseStats.str} · AGI ${meta.baseStats.agi} · VIT ${meta.baseStats.vit} · ENE ${meta.baseStats.ene}",

@@ -1,0 +1,8 @@
+{
+  "events": [
+    { "id": "blood-castle", "name": "Blood Castle", "mapId": "dungeon1", "minLevel": 15, "durationSec": 90, "rewardZen": 12000, "bossName": "Arcángel Caído" },
+    { "id": "devil-square", "name": "Devil Square", "mapId": "losttower", "minLevel": 50, "durationSec": 90, "rewardZen": 18000, "bossName": "Balrog Supremo" },
+    { "id": "chaos-castle", "name": "Chaos Castle", "mapId": "kanturu", "minLevel": 100, "durationSec": 90, "rewardZen": 25000, "bossName": "Guardián del Caos" },
+    { "id": "golden-invasion", "name": "Invasión Dorada", "mapId": "lorencia", "minLevel": 1, "durationSec": 90, "rewardZen": 8500, "bossName": "Golden Dragon" }
+  ]
+}

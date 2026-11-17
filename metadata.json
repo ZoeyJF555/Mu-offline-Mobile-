@@ -1,0 +1,8 @@
+{
+  "name": "Mu Offline Mobile",
+  "description": "RPG de acción estilo MU Offline para móvil y web con soporte PWA sin internet, sistema de Mods personalizados y multijugador local por Wi-Fi LAN.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

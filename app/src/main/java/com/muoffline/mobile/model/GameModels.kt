@@ -118,7 +118,8 @@ data class Item(
     val classReq: String = "all",
     val colorHex: Long = 0xFFE2E8F0,
     val valueZen: Int = 100,
-    val quantity: Int = 1
+    val quantity: Int = 1,
+    val durability: Int = 100
 )
 
 data class EquipSlots(

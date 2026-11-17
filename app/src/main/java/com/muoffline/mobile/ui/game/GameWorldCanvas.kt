@@ -249,6 +249,31 @@ fun GameWorldCanvas(
                 drawCircle(color = Color(0xFFFDE047), radius = 4f * flicker, center = Offset(gx, gy - 12f))
             }
 
+            // Lorencia southern river & iconic 3D-shaded wooden bridge (OpenMu-Client-Babylon landmark)
+            if (hero.mapId == MapId.LORENCIA) {
+                val riverTop = 752f - camY
+                val riverH = 54f
+                drawRect(color = Color(0xFF0C3B5E), topLeft = Offset(-camX, riverTop), size = Size(MuWorldConstants.WORLD_SIZE, riverH))
+                drawRect(color = Color(0xFF0284C7).copy(alpha = 0.45f), topLeft = Offset(-camX, riverTop + 8f), size = Size(MuWorldConstants.WORLD_SIZE, riverH - 16f))
+                val waveShift = if (animationsEnabled) ((now % 2400L) / 2400f) * 48f else 0f
+                var rx = -camX + waveShift
+                while (rx < viewW + 40f) {
+                    drawLine(Color(0xFF7DD3FC).copy(alpha = 0.32f), Offset(rx, riverTop + 18f), Offset(rx + 20f, riverTop + 18f), strokeWidth = 2f)
+                    drawLine(Color(0xFF38BDF8).copy(alpha = 0.25f), Offset(rx + 12f, riverTop + 34f), Offset(rx + 34f, riverTop + 34f), strokeWidth = 2f)
+                    rx += 68f
+                }
+                // Wooden bridge crossing at X=446..514
+                val bx = 446f - camX
+                val bw = 68f
+                drawRoundRect(color = Color(0xFF5C3A21), topLeft = Offset(bx, riverTop - 4f), size = Size(bw, riverH + 8f), cornerRadius = CornerRadius(4f, 4f))
+                for (plank in 0..7) {
+                    val py = riverTop + plank * 7.5f
+                    drawLine(Color(0xFF3E2412), Offset(bx + 2f, py), Offset(bx + bw - 2f, py), strokeWidth = 1.6f)
+                }
+                drawRect(color = Color(0xFF8B5A2B), topLeft = Offset(bx, riverTop - 4f), size = Size(6f, riverH + 8f))
+                drawRect(color = Color(0xFF8B5A2B), topLeft = Offset(bx + bw - 6f, riverTop - 4f), size = Size(6f, riverH + 8f))
+            }
+
             // Central Safe Zone Magic Fountain / Warp Crystal
             drawCircle(color = Color(0xFF334155), radius = 26f, center = Offset(safeSx, safeSy))
             drawCircle(color = Color(0xFF64748B), radius = 26f, center = Offset(safeSx, safeSy), style = Stroke(width = 2.5f))
@@ -388,10 +413,18 @@ fun GameWorldCanvas(
                 pillPaint = pillPaint
             )
 
-            // 9. Rich MU Online Skill VFX
+            // 9. Rich MU Online Skill VFX + Ambient Weather Particles (Devias Snow / Noria Spores)
             if (animationsEnabled) {
                 for (vfx in vfxList) {
                     drawMuSkillVfx(vfx, camX, camY, now, hdGraphics)
+                }
+                if (hdGraphics && (hero.mapId == MapId.DEVIAS || hero.mapId == MapId.NORIA || hero.mapId == MapId.ICARUS)) {
+                    val pColor = if (hero.mapId == MapId.NORIA) Color(0xFFA7F3D0) else Color(0xFFE0F2FE)
+                    for (p in 0 until 18) {
+                        val px = ((p * 97 + (now / 28L)) % max(1f, viewW).toInt()).toFloat()
+                        val py = ((p * 61 + (now / 18L)) % max(1f, viewH).toInt()).toFloat()
+                        drawCircle(color = pColor.copy(alpha = 0.45f), radius = if (hero.mapId == MapId.NORIA) 2.2f else 2.5f, center = Offset(px, py))
+                    }
                 }
             }
 
@@ -538,13 +571,21 @@ private fun DrawScope.drawMuNpc(
                 close()
             }, color = Color(0xFFFDE047).copy(alpha = 0.85f))
         }
-        "quest" -> {
-            drawCircle(color = Color(0xFFFDE047), radius = 6f, center = Offset(nx, ny - 25f))
+        "quest", "helper" -> {
+            drawCircle(color = Color(0xFFFDE047), radius = 6.5f, center = Offset(nx, ny - 28f))
+            drawLine(Color(0xFF1E293B), Offset(nx, ny - 31f), Offset(nx, ny - 26f), strokeWidth = 2f)
         }
         else -> {
-            // Market awning behind vendor
+            // Market awning behind vendor + Hanzo Blacksmith Forge / Barmaid Tavern Barrels
             drawRoundRect(color = Color(0xFF3F2E21), topLeft = Offset(nx - 18f, ny - 16f), size = Size(36f, 8f), cornerRadius = CornerRadius(3f, 3f))
             drawRoundRect(color = npcColor.copy(alpha = 0.78f), topLeft = Offset(nx - 18f, ny - 16f), size = Size(36f, 4f), cornerRadius = CornerRadius(2f, 2f))
+            if (npc.id == "barmaid") {
+                drawCircle(color = Color(0xFF78350F), radius = 5.5f, center = Offset(nx - 16f, ny + 6f))
+                drawCircle(color = Color(0xFFD97706), radius = 5.5f, center = Offset(nx - 16f, ny + 6f), style = Stroke(width = 1.4f))
+            } else if (npc.id == "smith") {
+                drawRoundRect(color = Color(0xFF475569), topLeft = Offset(nx + 12f, ny + 1f), size = Size(10f, 7f), cornerRadius = CornerRadius(2f, 2f))
+                drawCircle(color = Color(0xFFF97316).copy(alpha = 0.7f), radius = 4f, center = Offset(nx + 17f, ny - 2f))
+            }
         }
     }
 
@@ -635,6 +676,20 @@ private fun DrawScope.drawMuMonster(
             // Sword & Shield
             drawLine(Color(0xFFE2E8F0), Offset(mx + r * 0.5f, cy), Offset(mx + r * 0.95f, cy - r * 0.65f), strokeWidth = 2.5f)
             drawRoundRect(color = bodyColor, topLeft = Offset(mx - r * 0.95f, cy - r * 0.35f), size = Size(6f, 11f), cornerRadius = CornerRadius(2f, 2f))
+        }
+        lower.contains("hound") -> {
+            // Four-legged Lorencia Hound / Wolf silhouette
+            drawOval(color = darkShade, topLeft = Offset(mx - r * 0.9f, cy - r * 0.35f), size = Size(r * 1.45f, r * 0.75f))
+            drawLine(bodyColor, Offset(mx - r * 0.55f, cy + 2f), Offset(mx - r * 0.65f, cy + r * 0.65f), strokeWidth = 2.6f, cap = StrokeCap.Round)
+            drawLine(bodyColor, Offset(mx + r * 0.25f, cy + 2f), Offset(mx + r * 0.35f, cy + r * 0.65f), strokeWidth = 2.6f, cap = StrokeCap.Round)
+            drawCircle(color = bodyColor, radius = r * 0.42f, center = Offset(mx + r * 0.55f, cy - r * 0.25f))
+            drawPath(Path().apply {
+                moveTo(mx + r * 0.35f, cy - r * 0.55f)
+                lineTo(mx + r * 0.45f, cy - r * 0.95f)
+                lineTo(mx + r * 0.65f, cy - r * 0.55f)
+                close()
+            }, color = darkShade)
+            drawCircle(color = Color(0xFFEF4444), radius = 2f, center = Offset(mx + r * 0.68f, cy - r * 0.3f))
         }
         else -> {
             // Golem / Goblin / Yeti / Mutant humanoid silhouette

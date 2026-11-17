@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
@@ -132,6 +133,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val settings = repo.loadSettings()
             _hudSettings.value = settings
             soundFx.sfxVolume = settings.sfxVolume
+            soundFx.musicVolume = settings.musicVolume
             _accountId.value?.let { acc ->
                 _heroes.value = repo.loadHeroes(acc)
                 _vaultItems.value = repo.loadVault(acc)
@@ -182,6 +184,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logoutAccount() {
+        soundFx.pauseAmbientEngine()
         repo.logoutAccount()
         lanManager.leaveRoom()
         _autoHunt.value = false
@@ -235,6 +238,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _drops.value = emptyList()
         _floatingTexts.value = emptyList()
         _vfxList.value = emptyList()
+        soundFx.updateEnvironment(synced.mapId, 0.8f, 0.9f)
+        soundFx.startAmbientEngine()
     }
 
     fun createHero(rawName: String, classId: ClassId): String? {
@@ -274,6 +279,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _autoHunt.value = false
         _tradeSession.value = null
         _activeHero.value = null
+        soundFx.pauseAmbientEngine()
     }
 
     fun changeMap(mapId: MapId): String? {
@@ -297,6 +303,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _activeHero.value = next
         _monsters.value = MuCatalog.spawnMonstersForMap(mapId, _mods.value)
         _drops.value = emptyList()
+        soundFx.updateEnvironment(mapId, 0.8f, 0.9f)
+        soundFx.playUiClick()
         saveHeroAsync(next)
         if (connectedRoom.value != null) {
             lanManager.sendPlayerMove(next, _heroFacingAngle.value)
@@ -308,6 +316,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val next = transform(_hudSettings.value)
         _hudSettings.value = next
         soundFx.sfxVolume = next.sfxVolume
+        soundFx.musicVolume = next.musicVolume
         viewModelScope.launch { repo.saveSettings(next) }
     }
 
@@ -330,11 +339,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _heroFacingAngle.value = dir
         val updated = hero.copy(x = nx, y = ny)
         _activeHero.value = updated
+        soundFx.playFootstep(surfaceForPosition(hero.mapId, nx, ny))
 
         val now = System.currentTimeMillis()
         if (connectedRoom.value != null && now - lastLanSyncAt > 85L) {
             lastLanSyncAt = now
             lanManager.sendPlayerMove(updated, dir)
+        }
+    }
+
+    private fun surfaceForPosition(mapId: MapId, x: Float, y: Float): String {
+        val inSafe = hypot((x - MuWorldConstants.SAFE_CENTER).toDouble(), (y - MuWorldConstants.SAFE_CENTER).toDouble()) <= MuWorldConstants.SAFE_RADIUS
+        if (inSafe) return "stone"
+        return when (mapId) {
+            MapId.DEVIAS, MapId.ICARUS -> "snow"
+            MapId.ATLANS, MapId.KALIMA -> "water"
+            MapId.DUNGEON1, MapId.DUNGEON2, MapId.DUNGEON3, MapId.LOSTTOWER, MapId.KANTURU, MapId.STADIUM -> "stone"
+            else -> if (mapId == MapId.LORENCIA && y in 740f..805f) "water" else "grass"
         }
     }
 
@@ -388,7 +409,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             aoeRadius = skill.aoeRadius
             vfxColor = skill.colorHex
             _skillCooldowns.value = _skillCooldowns.value + (skill.id to (nowMs + skill.cooldownMs))
-            soundFx.playSkill()
+            soundFx.playSkill(skill.id)
 
             if (skill.id == "heal-aura") {
                 val healAmt = (derived.maxHp * 0.45f).roundToInt()
@@ -482,9 +503,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         for (km in killed) {
             spawnDropAt(km.x, km.y, km, mapMeta)
+            val dKill = hypot((km.x - hero.x).toDouble(), (km.y - hero.y).toDouble()).toFloat()
+            soundFx.playMonsterVoice(km.templateId, dKill, isDeath = true)
+        }
+        if (killed.isEmpty()) {
+            val dHit = hypot((primary.x - hero.x).toDouble(), (primary.y - hero.y).toDouble()).toFloat()
+            soundFx.playMonsterVoice(primary.templateId, dHit, isDeath = false)
         }
 
-        var nextHero = hero.copy(mp = max(0, hero.mp - mpCost))
+        // Subtle weapon durability wear (Babylon / Classic MU item durability mechanic)
+        var wornEquip = hero.equipment
+        val weapon = wornEquip.weapon
+        if (weapon != null && weapon.durability > 0 && Random.nextFloat() < 0.14f) {
+            val newDur = max(0, weapon.durability - 1)
+            wornEquip = wornEquip.copy(weapon = weapon.copy(durability = newDur))
+            if (newDur == 15 || newDur == 0) {
+                pushFloatingText(hero.x, hero.y - 42f, "¡Repara ${weapon.name}!", 0xFFF59E0B)
+            }
+        }
+
+        var nextHero = hero.copy(mp = max(0, hero.mp - mpCost), equipment = wornEquip)
         if (totalExp > 0 || totalZen > 0) {
             val (rewarded, leveledUp) = applyRewards(nextHero, totalExp, totalZen, killed.size)
             nextHero = rewarded
@@ -612,6 +650,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         )
         val derived = MuCatalog.computeDerivedHeroStats(updated)
         val finalHero = updated.copy(maxHp = derived.maxHp, maxMp = derived.maxMp)
+        soundFx.playEquip()
         _activeHero.value = finalHero
         saveHeroAsync(finalHero)
         return null
@@ -665,14 +704,78 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun sellItem(itemId: String): String {
         val hero = _activeHero.value ?: return "Error"
         val item = hero.inventory.firstOrNull { it.id == itemId } ?: return "Ítem no encontrado"
-        val gain = item.valueZen * max(1, item.quantity)
+        val gain = max(10, (item.valueZen * 0.6).roundToInt()) * max(1, item.quantity)
         val next = hero.copy(
             zen = hero.zen + gain,
             inventory = hero.inventory.filterNot { it.id == itemId }
         )
+        soundFx.playZenPickup()
         _activeHero.value = next
         saveHeroAsync(next)
         return "Vendiste ${item.name} por $gain Zen."
+    }
+
+    fun repairCostForItem(item: Item): Int {
+        val missing = (100 - item.durability).coerceIn(0, 100)
+        if (missing == 0) return 0
+        return max(15, (missing * max(1, item.valueZen / 250)))
+    }
+
+    fun repairItem(itemId: String): String {
+        val hero = _activeHero.value ?: return "Error"
+        val target = (hero.equipment.allEquipped() + hero.inventory).firstOrNull { it.id == itemId }
+            ?: return "Ítem no encontrado."
+        val cost = repairCostForItem(target)
+        if (cost <= 0) return "${target.name} ya está al 100%."
+        if (hero.zen < cost) return "Necesitas $cost Zen para reparar ${target.name}."
+        val fix: (Item) -> Item = { if (it.id == itemId) it.copy(durability = 100) else it }
+        val next = hero.copy(
+            zen = hero.zen - cost,
+            equipment = hero.equipment.mapItems(fix),
+            inventory = hero.inventory.map(fix)
+        )
+        soundFx.playEquip()
+        _activeHero.value = next
+        saveHeroAsync(next)
+        return "Reparaste ${target.name} al 100% por $cost Zen."
+    }
+
+    fun repairAllEquipment(): String {
+        val hero = _activeHero.value ?: return "Error"
+        val equipped = hero.equipment.allEquipped()
+        val totalCost = equipped.sumOf { repairCostForItem(it) }
+        if (totalCost <= 0) return "Todo tu equipo equipado ya está al 100%."
+        if (hero.zen < totalCost) return "Necesitas $totalCost Zen para reparar todo tu equipo."
+        val next = hero.copy(
+            zen = hero.zen - totalCost,
+            equipment = hero.equipment.mapItems { it.copy(durability = 100) }
+        )
+        soundFx.playChaosSuccess()
+        _activeHero.value = next
+        saveHeroAsync(next)
+        return "Todo tu equipo fue reparado al 100% por $totalCost Zen."
+    }
+
+    fun claimLeoHelperSupply(): Pair<Boolean, String> {
+        val hero = _activeHero.value ?: return false to "Sin héroe activo."
+        val supply = Item(
+            id = MuCatalog.newUid("leo"),
+            templateId = "hp-potion",
+            name = "Large Healing Potion",
+            slot = ItemSlot.POTION,
+            rarity = ItemRarity.NORMAL,
+            potionType = PotionType.HP,
+            colorHex = 0xFFEF4444,
+            valueZen = 150,
+            quantity = 3
+        )
+        val hpFill = hero.maxHp
+        val mpFill = hero.maxMp
+        val next = addItemToHero(hero.copy(hp = hpFill, mp = mpFill), supply)
+        soundFx.playPotion()
+        _activeHero.value = next
+        saveHeroAsync(next)
+        return true to "Leo the Helper restauró tu HP/MP y te entregó +3 Pociones de Vida."
     }
 
     fun buyShopItem(template: Item, costZen: Int): String {
@@ -1144,14 +1247,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     for (d in collected) {
                         d.zen?.let { z ->
                             updatedHero = updatedHero.copy(zen = updatedHero.zen + z)
+                            soundFx.playZenPickup()
                             pushFloatingText(updatedHero.x, updatedHero.y - 26f, "+$z Zen", 0xFFFBBF24)
                         }
                         d.item?.let { item ->
                             updatedHero = addItemToHero(updatedHero, item)
+                            if (item.slot == ItemSlot.JEWEL) soundFx.playJewelDrop() else soundFx.playEquip()
                             pushFloatingText(updatedHero.x, updatedHero.y - 34f, "+${item.name}", item.colorHex)
                         }
                     }
                 }
+
+                // Spatial Layer 3 (Fire Crackle) & Layer 4 (Fountain / Chaos Cauldron loop)
+                val distSafe = hypot((updatedHero.x - MuWorldConstants.SAFE_CENTER).toDouble(), (updatedHero.y - MuWorldConstants.SAFE_CENTER).toDouble()).toFloat()
+                val fireProx = (1f - (abs(distSafe - MuWorldConstants.SAFE_RADIUS) / 220f)).coerceIn(0f, 1f)
+                val objProx = (1f - (distSafe / 260f)).coerceIn(0f, 1f)
+                soundFx.updateEnvironment(updatedHero.mapId, fireProx, objProx)
 
                 var damageToHero = 0
                 _monsters.value = _monsters.value.map { m ->
@@ -1380,6 +1491,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        soundFx.release()
         lanManager.shutdown()
     }
 }

@@ -19,13 +19,19 @@ import androidx.compose.ui.window.DialogProperties
 import com.muoffline.mobile.R
 import com.muoffline.mobile.model.*
 import com.muoffline.mobile.ui.theme.*
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 @Composable
 fun NpcShopDialog(
     npc: MapNpcDef,
     hero: HeroSave,
+    repairCostForItem: (Item) -> Int,
     onBuyItem: (Item, Int) -> String,
+    onSellItem: (String) -> String,
+    onRepairItem: (String) -> String,
+    onRepairAll: () -> String,
+    onClaimLeoSupply: () -> Pair<Boolean, String>,
     onOpenChaosMachine: () -> Unit,
     onOpenVault: () -> Unit,
     onAdvanceEvolution: () -> Pair<Boolean, String>,
@@ -33,21 +39,24 @@ fun NpcShopDialog(
     onDismiss: () -> Unit
 ) {
     var statusMessage by remember { mutableStateOf<String?>(null) }
+    var shopTab by remember(npc.id) { mutableIntStateOf(0) } // 0 = Comprar, 1 = Vender, 2 = Reparar
 
     val shopPool = remember(npc.id) {
         when (npc.id) {
-            "barmaid" -> MuCatalog.SHOP_TEMPLATES.filter { it.slot == ItemSlot.POTION }
-            "wizard" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq == "dw" || it.slot == ItemSlot.POTION }
+            "barmaid", "elf-lala" -> MuCatalog.SHOP_TEMPLATES.filter { it.slot == ItemSlot.POTION }
+            "wizard", "wizard-izabel" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq == "dw" || it.slot == ItemSlot.POTION }
             "smith" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq in setOf("dk", "mg", "dl", "all") && it.slot != ItemSlot.ARMOR }
-            "armor-lorencia" -> MuCatalog.SHOP_TEMPLATES.filter { it.slot == ItemSlot.ARMOR || it.slot == ItemSlot.OFFHAND }
+            "armor-lorencia" -> MuCatalog.SHOP_TEMPLATES.filter { it.slot == ItemSlot.ARMOR || it.slot == ItemSlot.OFFHAND || it.slot == ItemSlot.POTION }
             "elf-merchant" -> MuCatalog.SHOP_TEMPLATES.filter { it.classReq == "elf" || it.slot == ItemSlot.POTION }
             "devias-potion" -> MuCatalog.SHOP_TEMPLATES
-            "chaos", "vault-lorencia", "marlon", "golden-archer" -> emptyList()
+            "chaos", "vault-lorencia", "vault-noria", "vault-devias", "marlon", "leo-helper", "golden-archer" -> emptyList()
             else -> MuCatalog.SHOP_TEMPLATES
         }
     }
 
     val talismanQty = hero.inventory.filter { it.slot == ItemSlot.TALISMAN }.sumOf { it.quantity }
+    val equippedList = hero.equipment.allEquipped()
+    val totalRepairAllCost = equippedList.sumOf { repairCostForItem(it) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -60,7 +69,7 @@ fun NpcShopDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .widthIn(max = 580.dp)
-                .heightIn(max = 620.dp)
+                .heightIn(max = 640.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -73,7 +82,7 @@ fun NpcShopDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(npc.name, style = MaterialTheme.typography.headlineSmall, color = MuAmberBright)
                         Text("${npc.subtitle} · Tu Zen: ${hero.zen}", style = MaterialTheme.typography.labelMedium, color = MuTextSecondary)
                     }
@@ -186,6 +195,37 @@ fun NpcShopDialog(
                         }
                     }
 
+                    "helper" -> {
+                        Surface(
+                            color = MuStoneCard,
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, MuEmerald)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "¡Bienvenido a Lorencia! Puedo restaurar tu HP/MP por completo y entregarte pociones de ayuda en tu aventura.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MuTextPrimary
+                                )
+                                Button(
+                                    onClick = {
+                                        val (_, msg) = onClaimLeoSupply()
+                                        statusMessage = msg
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MuEmerald, contentColor = Color(0xFF022016)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("npc_leo_supply")
+                                ) {
+                                    Icon(Icons.Rounded.VolunteerActivism, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Curar HP/MP y Recibir Pociones")
+                                }
+                            }
+                        }
+                    }
+
                     "archer" -> {
                         Surface(
                             color = MuStoneCard,
@@ -219,43 +259,164 @@ fun NpcShopDialog(
                     }
                 }
 
-                if (shopPool.isNotEmpty()) {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f, fill = false),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                if (npc.role == "shop") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(shopPool, key = { it.templateId }) { tpl ->
-                            val costZen = if (tpl.slot == ItemSlot.POTION) tpl.valueZen * 5 else (tpl.valueZen * 1.4).roundToInt()
-                            Surface(
-                                color = MuStoneCard,
-                                shape = MaterialTheme.shapes.small,
-                                border = BorderStroke(1.dp, Color(tpl.colorHex).copy(alpha = 0.5f))
+                        ShopTabPill("Comprar", shopTab == 0, Modifier.weight(1f), "shop_tab_buy") { shopTab = 0 }
+                        ShopTabPill("Vender (${hero.inventory.size})", shopTab == 1, Modifier.weight(1f), "shop_tab_sell") { shopTab = 1 }
+                        ShopTabPill("Reparar", shopTab == 2, Modifier.weight(1f), "shop_tab_repair") { shopTab = 2 }
+                    }
+
+                    when (shopTab) {
+                        0 -> {
+                            LazyColumn(
+                                modifier = Modifier.weight(1f, fill = false),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Row(
+                                items(shopPool, key = { it.templateId }) { tpl ->
+                                    val costZen = if (tpl.slot == ItemSlot.POTION) tpl.valueZen * 5 else (tpl.valueZen * 1.4).roundToInt()
+                                    Surface(
+                                        color = MuStoneCard,
+                                        shape = MaterialTheme.shapes.small,
+                                        border = BorderStroke(1.dp, Color(tpl.colorHex).copy(alpha = 0.5f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (tpl.slot == ItemSlot.POTION) "${tpl.name} (x5)" else "${tpl.name} +${tpl.plus}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = Color(tpl.colorHex)
+                                                )
+                                                Text(
+                                                    text = "${tpl.slot.labelEs} · Precio: $costZen Zen",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MuTextSecondary
+                                                )
+                                            }
+                                            Button(
+                                                onClick = { statusMessage = onBuyItem(tpl, costZen) },
+                                                enabled = hero.zen >= costZen,
+                                                colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202))
+                                            ) {
+                                                Text("Comprar")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        1 -> {
+                            if (hero.inventory.isEmpty()) {
+                                Text("Tu mochila está vacía.", style = MaterialTheme.typography.bodyMedium, color = MuTextSecondary)
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(hero.inventory, key = { it.id }) { item ->
+                                        val sellValue = max(10, (item.valueZen * 0.6).roundToInt()) * max(1, item.quantity)
+                                        Surface(
+                                            color = MuStoneCard,
+                                            shape = MaterialTheme.shapes.small,
+                                            border = BorderStroke(1.dp, Color(item.colorHex).copy(alpha = 0.5f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = "${item.name}${if (item.plus > 0) " +${item.plus}" else ""}${if (item.quantity > 1) " x${item.quantity}" else ""}",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = Color(item.colorHex)
+                                                    )
+                                                    Text(
+                                                        text = "${item.slot.labelEs} · Recibes: $sellValue Zen",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MuTextSecondary
+                                                    )
+                                                }
+                                                OutlinedButton(
+                                                    onClick = { statusMessage = onSellItem(item.id) },
+                                                    border = BorderStroke(1.dp, MuAmberBright.copy(alpha = 0.65f))
+                                                ) {
+                                                    Text("Vender", color = MuAmberBright)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        2 -> {
+                            Column(
+                                modifier = Modifier.weight(1f, fill = false),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { statusMessage = onRepairAll() },
+                                    enabled = totalRepairAllCost > 0 && hero.zen >= totalRepairAllCost,
+                                    colors = ButtonDefaults.buttonColors(containerColor = MuSky, contentColor = Color(0xFF041C2C)),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .heightIn(min = 48.dp)
+                                        .testTag("npc_repair_all")
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = if (tpl.slot == ItemSlot.POTION) "${tpl.name} (x5)" else "${tpl.name} +${tpl.plus}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color(tpl.colorHex)
-                                        )
-                                        Text(
-                                            text = "${tpl.slot.labelEs} · Precio: $costZen Zen",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MuTextSecondary
-                                        )
-                                    }
-                                    Button(
-                                        onClick = { statusMessage = onBuyItem(tpl, costZen) },
-                                        enabled = hero.zen >= costZen,
-                                        colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202))
-                                    ) {
-                                        Text("Comprar")
+                                    Icon(Icons.Rounded.Build, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (totalRepairAllCost > 0) "Reparar Todo Equipo ($totalRepairAllCost Zen)"
+                                        else "Equipo al 100%"
+                                    )
+                                }
+                                LazyColumn(
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(equippedList, key = { it.id }) { eq ->
+                                        val rCost = repairCostForItem(eq)
+                                        Surface(
+                                            color = MuStoneCard,
+                                            shape = MaterialTheme.shapes.small,
+                                            border = BorderStroke(1.dp, if (eq.durability < 30) MuCrimson else MuBorderSlate)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text("${eq.name} +${eq.plus}", style = MaterialTheme.typography.bodyMedium, color = Color(eq.colorHex))
+                                                    Text(
+                                                        text = "Durabilidad: ${eq.durability}/100",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = if (eq.durability < 30) MuCrimson else MuEmerald
+                                                    )
+                                                }
+                                                Button(
+                                                    onClick = { statusMessage = onRepairItem(eq.id) },
+                                                    enabled = rCost > 0 && hero.zen >= rCost,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = MuGold, contentColor = Color(0xFF1B1202))
+                                                ) {
+                                                    Text(if (rCost > 0) "$rCost Zen" else "OK")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -264,5 +425,28 @@ fun NpcShopDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ShopTabPill(
+    label: String,
+    active: Boolean,
+    modifier: Modifier,
+    tag: String,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (active) MuGold else MuStoneCard,
+            contentColor = if (active) Color(0xFF1B1202) else MuTextPrimary
+        ),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+        modifier = modifier
+            .heightIn(min = 42.dp)
+            .testTag(tag)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
     }
 }

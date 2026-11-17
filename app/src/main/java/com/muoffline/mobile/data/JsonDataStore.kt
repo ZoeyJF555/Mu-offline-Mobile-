@@ -254,7 +254,7 @@ class JsonDataStore(context: Context) {
     fun loadNpcs(): List<MapNpcDef> {
         if (!npcsFile.exists()) return MuCatalog.DEFAULT_NPCS
         val rootObj = runCatching { JSONObject(npcsFile.readText()) }.getOrNull() ?: return MuCatalog.DEFAULT_NPCS
-        if (rootObj.optInt("schemaVersion", 1) < 2) {
+        if (rootObj.optInt("schemaVersion", 1) < 3) {
             runCatching {
                 appContext.assets.open("data/npcs.json").bufferedReader().use { it.readText() }
             }.onSuccess { raw ->
@@ -310,6 +310,7 @@ class JsonDataStore(context: Context) {
             put("color", MuCatalog.formatColorHex(item.colorHex))
             put("valueZen", item.valueZen)
             put("quantity", item.quantity)
+            put("durability", item.durability)
         }
 
         fun decodeItem(obj: JSONObject): Item = Item(
@@ -330,7 +331,8 @@ class JsonDataStore(context: Context) {
             classReq = obj.optString("classReq", "all"),
             colorHex = MuCatalog.parseColorHex(obj.optString("color"), 0xFFE2E8F0),
             valueZen = obj.optInt("valueZen", 100),
-            quantity = obj.optInt("quantity", 1).coerceAtLeast(1)
+            quantity = obj.optInt("quantity", 1).coerceAtLeast(1),
+            durability = obj.optInt("durability", 100).coerceIn(0, 100)
         )
 
         fun encodeHero(hero: HeroSave): JSONObject = JSONObject().apply {

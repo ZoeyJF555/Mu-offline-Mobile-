@@ -166,9 +166,9 @@ fun InventoryChaosDialog(
                                     Text(slot.labelEs, style = MaterialTheme.typography.labelMedium, color = MuTextSecondary, modifier = Modifier.width(86.dp))
                                     if (eq != null) {
                                         Text(
-                                            text = "${eq.name} +${eq.plus}",
+                                            text = "${eq.name} +${eq.plus} (${eq.durability}% dur)",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = Color(eq.colorHex),
+                                            color = if (eq.durability <= 15) MuCrimson else Color(eq.colorHex),
                                             modifier = Modifier.weight(1f),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -256,7 +256,7 @@ fun InventoryChaosDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "${selectedItem.name} +${selectedItem.plus} (ATK ${selectedItem.attack} · MAG ${selectedItem.magic} · DEF ${selectedItem.defense} · HP +${selectedItem.hpBonus})",
+                                    text = "${selectedItem.name} +${selectedItem.plus} (ATK ${selectedItem.attack} · MAG ${selectedItem.magic} · DEF ${selectedItem.defense} · HP +${selectedItem.hpBonus} · Dur ${selectedItem.durability}%)",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = Color(selectedItem.colorHex)
                                 )

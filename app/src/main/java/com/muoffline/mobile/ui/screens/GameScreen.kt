@@ -210,7 +210,12 @@ fun GameScreen(
         NpcShopDialog(
             npc = npc,
             hero = hero,
+            repairCostForItem = { item -> viewModel.repairCostForItem(item) },
             onBuyItem = { tpl, cost -> viewModel.buyShopItem(tpl, cost) },
+            onSellItem = { itemId -> viewModel.sellItem(itemId) },
+            onRepairItem = { itemId -> viewModel.repairItem(itemId) },
+            onRepairAll = { viewModel.repairAllEquipment() },
+            onClaimLeoSupply = { viewModel.claimLeoHelperSupply() },
             onOpenChaosMachine = {
                 inventoryInitialChaos = true
                 showInventoryDialog = true

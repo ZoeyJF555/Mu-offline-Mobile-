@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>MU Offline - Lorencia 3D</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a140e;overflow:hidden;font-family:sans-serif;color:#eee}
+  canvas{display:block;width:100%;height:100%}
+  #bar{position:fixed;left:0;right:0;bottom:0;height:6px;background:#222}
+  #bar i{display:block;height:100%;width:0;background:#d97706}
+  #msg{position:fixed;left:8px;top:8px;font-size:13px;text-shadow:0 0 3px #000;white-space:pre}
+</style>
+<script type="importmap">
+{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}
+</script>
+</head>
+<body>
+<div id="msg">Cargando Lorencia...</div>
+<div id="bar"><i id="fill"></i></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+const Q = new URLSearchParams(location.search);
+const msg = document.getElementById('msg'), fill = document.getElementById('fill');
+const errors = [];
+const log = (s) => { console.log(s); };
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a140e);
+scene.fog = new THREE.Fog(0x0a140e, 40, 90);
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 300);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x556644, 1.9));
+const sun = new THREE.DirectionalLight(0xffeedd, 1.2); sun.position.set(-30, 60, 20); scene.add(sun);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+
+const loader = new GLTFLoader();
+const loadGLB = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+const b64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const N = 256;
+let total = 1, done = 0;
+const tick = () => { done++; fill.style.width = Math.min(100, done / total * 100) + '%'; };
+
+// ---- MU type -> Object1 file (Lorencia's table from create.ts) ----
+const RANGES = [
+  [0, 13, 'Tree'], [20, 8, 'Grass'], [30, 5, 'Stone'], [40, 3, 'StoneStatue'], [43, 1, 'SteelStatue', true],
+  [44, 3, 'Tomb'], [50, 2, 'FireLight'], [52, 1, 'Bonfire', true], [55, 1, 'DoungeonGate', true],
+  [56, 2, 'MerchantAnimal'], [58, 1, 'TreasureDrum', true], [59, 1, 'TreasureChest', true], [60, 1, 'Ship', true],
+  [65, 3, 'SteelWall'], [68, 1, 'SteelDoor', true], [69, 6, 'StoneWall'], [75, 4, 'StoneMuWall'],
+  [80, 1, 'Bridge', true], [81, 4, 'Fence'], [85, 1, 'BridgeStone', true], [90, 1, 'StreetLight', true],
+  [91, 3, 'Cannon'], [95, 1, 'Curtain', true], [96, 2, 'Sign'], [98, 4, 'Carriage'], [102, 2, 'Straw'],
+  [105, 1, 'Waterspout', true], [106, 4, 'Well'], [110, 1, 'Hanging', true], [111, 1, 'Stair', true],
+  [115, 5, 'House'], [120, 1, 'Tent', true], [121, 6, 'HouseWall'], [127, 3, 'HouseEtc'], [133, 1, 'PoseBox', true],
+  [140, 7, 'Furniture'], [150, 1, 'Candle', true], [151, 3, 'Beer'],
+];
+function fileFor(type) {
+  for (const [base, n, prefix, single] of RANGES) {
+    if (type >= base && type < base + n) return single ? `${prefix}01.glb` : `${prefix}${String(type - base + 1).padStart(2, '0')}.glb`;
+  }
+  return null;
+}
+
+const world = await (await fetch('world1/world1.json')).json();
+const heightB = b64(world.height), l1 = b64(world.layer1), l2 = b64(world.layer2), alpha = b64(world.alpha), att = b64(world.att);
+const H = (tx, ty) => heightB[Math.min(N - 1, Math.max(0, ty)) * N + Math.min(N - 1, Math.max(0, tx))] * 1.5 / 100;
+
+// ---- terrain ----
+async function buildTerrain() {
+  const tiles = world.tiles;
+  const atlas = document.createElement('canvas'); atlas.width = atlas.height = 768;
+  const ctx = atlas.getContext('2d');
+  await Promise.all(tiles.map((t, i) => new Promise((res) => {
+    const im = new Image();
+    im.onload = () => { ctx.drawImage(im, (i % 3) * 256, Math.floor(i / 3) * 256, 256, 256); res(); };
+    im.onerror = () => { errors.push('tile ' + t); res(); };
+    im.src = `world1/tiles/${t}.jpg`;
+  })));
+  const atlasTex = new THREE.CanvasTexture(atlas);
+  atlasTex.colorSpace = THREE.SRGBColorSpace; atlasTex.generateMipmaps = false;
+  atlasTex.minFilter = atlasTex.magFilter = THREE.LinearFilter;
+  const mk = (arr, fmtRG) => { const d = new Uint8Array(N * N * 4); for (let i = 0; i < N * N; i++) { d[i * 4] = arr[0][i]; d[i * 4 + 1] = arr[1][i]; d[i * 4 + 2] = arr[2][i]; d[i * 4 + 3] = 255; } const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.needsUpdate = true; t.minFilter = t.magFilter = THREE.NearestFilter; return t; };
+  const maps = mk([l1, l2, alpha]);
+  const lightTex = await new THREE.TextureLoader().loadAsync('world1/TerrainLight.jpg');
+  lightTex.colorSpace = THREE.SRGBColorSpace;
+
+  const g = new THREE.PlaneGeometry(N - 1, N - 1, N - 1, N - 1);
+  g.rotateX(-Math.PI / 2);
+  const pos = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const tx = Math.round(pos.getX(i) + (N - 1) / 2), tz = Math.round(pos.getZ(i) + (N - 1) / 2);
+    pos.setXYZ(i, tx, H(tx, tz), tz);
+    uv.setXY(i, (tx + 0.5) / N, (tz + 0.5) / N);
+  }
+  g.computeVertexNormals();
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { atlas: { value: atlasTex }, maps: { value: maps }, light: { value: lightTex } },
+    vertexShader: `varying vec2 vUv; varying float vFog; void main(){ vUv=uv; vec4 mv=modelViewMatrix*vec4(position,1.); vFog=length(mv.xyz); gl_Position=projectionMatrix*mv; }`,
+    fragmentShader: `
+      uniform sampler2D atlas, maps, light; varying vec2 vUv; varying float vFog;
+      vec3 tile(float idx, vec2 f){
+        float i = floor(idx*255.+.5); float cx=mod(i,3.), cy=2.-floor(i/3.);
+        vec2 ff=clamp(vec2(f.x,1.-f.y),.004,.996);
+        vec2 uv=(vec2(cx,cy)+ff)/3.; return texture2D(atlas,uv).rgb;
+      }
+      void main(){
+        vec4 m=texture2D(maps,vUv);
+        vec2 f=fract(vUv*256.-.5+.5);
+        vec3 c=tile(m.r,f);
+        if(m.g<0.999){ c=mix(c,tile(m.g,f),m.b); }
+        c*=texture2D(light,vUv).rgb*2.1;
+        float fg=smoothstep(40.,90.,vFog);
+        gl_FragColor=vec4(mix(c,vec3(.04,.08,.055),fg),1.);
+      }`,
+  });
+  const mesh = new THREE.Mesh(g, mat);
+  mesh.position.set(0, 0, 0); // vertices are already in tile coords
+  scene.add(mesh);
+}
+
+// ---- objects ----
+// MU is Z-up (x,y,z); the scene is Y-up. S swaps y and z. Models (GLB) keep MU's Z-up local frame.
+const SWAP = new THREE.Matrix4().set(1,0,0,0, 0,0,1,0, 0,1,0,0, 0,0,0,1);
+function muMatrix(x, y, z, rxDeg, ryDeg, rzDeg, s) {
+  const rx = rxDeg * Math.PI / 180, ry = ryDeg * Math.PI / 180, rz = rzDeg * Math.PI / 180;
+  const sr = Math.sin(rx), cr = Math.cos(rx), sp = Math.sin(ry), cp = Math.cos(ry), sy = Math.sin(rz), cy = Math.cos(rz);
+  const R = new THREE.Matrix4().set(
+    cp*cy, sr*sp*cy - cr*sy, cr*sp*cy + sr*sy, 0,
+    cp*sy, sr*sp*sy + cr*cy, cr*sp*sy - sr*cy, 0,
+    -sp,   sr*cp,            cr*cp,            0,
+    0,0,0,1);
+  const M = new THREE.Matrix4().makeTranslation(x, y, z).multiply(R).multiply(new THREE.Matrix4().makeScale(s, s, s));
+  return new THREE.Matrix4().multiplyMatrices(SWAP, M);
+}
+function place(obj, m) { obj.matrixAutoUpdate = false; obj.matrix.copy(m); obj.matrixWorldNeedsUpdate = true; }
+async function buildObjects() {
+  const byType = new Map();
+  for (const o of world.objects) { if (!byType.has(o[0])) byType.set(o[0], []); byType.get(o[0]).push(o); }
+  total += byType.size;
+  let placed = 0, missing = new Set();
+  const group = new THREE.Group(); scene.add(group);
+  await Promise.all([...byType].map(async ([type, list]) => {
+    const f = fileFor(type);
+    if (!f) { missing.add(type); tick(); return; }
+    let gltf;
+    try { gltf = await loadGLB(`world1/${world.objectDir}/${f}`); } catch (e) { missing.add(type + ':' + f); tick(); return; }
+    for (const [, x, y, z, rx, ry, rz, s] of list) {
+      const obj = SkeletonUtils.clone(gltf.scene);
+      place(obj, muMatrix(x / 100, y / 100, z / 100, rx, ry, rz, s));
+      group.add(obj); placed++;
+    }
+    tick();
+  }));
+  log('objects placed ' + placed + ' missing ' + [...missing].join(','));
+  return { placed, missing: [...missing] };
+}
+
+// ---- hero: Dark Knight from the real MU parts ----
+const mixers = [];
+async function buildHero(x, z) {
+  const parts = ['player', 'ArmorMale01', 'PantMale01', 'GloveMale01', 'BootMale01', 'HelmMale01'];
+  const gl = await Promise.all(parts.map(p => loadGLB(`models/Player/${p}.glb`).catch(e => { errors.push(p); return null; })));
+  const hero = new THREE.Group();
+  const clips = gl[0].animations;
+  const clip = clips[Number(Q.get('anim') || 1)] || clips[0];
+  for (const g of gl) {
+    if (!g) continue;
+    hero.add(g.scene);
+    const mx = new THREE.AnimationMixer(g.scene); mx.clipAction(clip).play(); mixers.push(mx);
+  }
+  hero.userData.clipName = clip.name;
+  place(hero, muMatrix(x, z, H(Math.round(x), Math.round(z)), 0, 0, Number(Q.get('face') || 135), Number(Q.get('heroScale') || 1)));
+  hero.userData.worldY = H(Math.round(x), Math.round(z));
+  scene.add(hero);
+  return hero;
+}
+
+// ---- monsters around the hero ----
+async function buildMonsters(cx, cz) {
+  const list = [['Monster/Monster01.glb', 0.8, -3, 2], ['Monster/Monster02.glb', 0.85, 3.5, 3], ['Monster/Monster03.glb', 0.5, 0, 4.5], ['Monster/Monster10.glb', 0.4, -4, -2]];
+  for (const [f, sc, dx, dz] of list) {
+    try {
+      const g = await loadGLB('models/' + f);
+      const o = SkeletonUtils.clone(g.scene);
+      const mx = new THREE.AnimationMixer(o); if (g.animations[0]) mx.clipAction(g.animations[0]).play(); mixers.push(mx);
+      place(o, muMatrix(cx + dx, cz + dz, H(Math.round(cx + dx), Math.round(cz + dz)), 0, 0, 200 + dx * 20, sc));
+      scene.add(o);
+    } catch (e) { errors.push(f); }
+  }
+}
+
+total += 3;
+await buildTerrain(); tick();
+const spawn = { x: Number(Q.get('x') || 135), z: Number(Q.get('z') || 131) };
+const hero = await buildHero(spawn.x, spawn.z); tick();
+await buildMonsters(spawn.x, spawn.z);
+const res = await buildObjects(); tick();
+
+// camera: MU-like high 3/4 view
+const dist = Number(Q.get('dist') || 14), pitch = (Number(Q.get('pitch') || 48)) * Math.PI / 180, yaw = (Number(Q.get('yaw') || 0)) * Math.PI / 180;
+const target = new THREE.Vector3(spawn.x, hero.userData.worldY + 1, spawn.z);
+camera.position.set(target.x + Math.sin(yaw) * Math.cos(pitch) * dist, target.y + Math.sin(pitch) * dist, target.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+camera.lookAt(target);
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = clock.getDelta(); mixers.forEach(m => m.update(dt)); renderer.render(scene, camera); });
+msg.textContent = `Lorencia  |  objetos ${res.placed}  |  tiles ${world.tiles.length}` + (errors.length ? `\nerrores: ${errors.join(', ')}` : '');
+if (Q.has('clean')) msg.style.display = 'none';
+window.__ready = { objects: res.placed, missing: res.missing, errors, anim: hero.userData.clipName, clips: 0 };
+</script>
+</body>
+</html>

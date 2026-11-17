@@ -1,0 +1,194 @@
+package com.muoffline.mobile.ui.screens
+
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.muoffline.mobile.model.*
+import com.muoffline.mobile.ui.dialogs.*
+import com.muoffline.mobile.ui.game.GameHudOverlay
+import com.muoffline.mobile.ui.game.GameWorldCanvas
+import com.muoffline.mobile.viewmodel.GameViewModel
+import kotlin.math.hypot
+
+@Composable
+fun GameScreen(
+    hero: HeroSave,
+    viewModel: GameViewModel,
+    onOpenMods: () -> Unit,
+    onOpenLan: () -> Unit
+) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+
+    val monsters by viewModel.monsters.collectAsStateWithLifecycle()
+    val drops by viewModel.drops.collectAsStateWithLifecycle()
+    val floatingTexts by viewModel.floatingTexts.collectAsStateWithLifecycle()
+    val vfxList by viewModel.vfxList.collectAsStateWithLifecycle()
+    val skillCooldowns by viewModel.skillCooldowns.collectAsStateWithLifecycle()
+    val autoHunt by viewModel.autoHunt.collectAsStateWithLifecycle()
+    val muted by viewModel.muted.collectAsStateWithLifecycle()
+    val heroFacingAngle by viewModel.heroFacingAngle.collectAsStateWithLifecycle()
+    val activeModRates by viewModel.activeModRates.collectAsStateWithLifecycle()
+    val mods by viewModel.mods.collectAsStateWithLifecycle()
+
+    val connectedRoom by viewModel.connectedRoom.collectAsStateWithLifecycle()
+    val lanPlayers by viewModel.lanPlayers.collectAsStateWithLifecycle()
+    val lanBosses by viewModel.lanBosses.collectAsStateWithLifecycle()
+    val activeEvent by viewModel.activeEvent.collectAsStateWithLifecycle()
+    val incomingTrade by viewModel.incomingTrade.collectAsStateWithLifecycle()
+    val tradeSession by viewModel.tradeSession.collectAsStateWithLifecycle()
+    val chatMessages by viewModel.chatMessages.collectAsStateWithLifecycle()
+
+    var showCharacterDialog by remember { mutableStateOf(false) }
+    var showInventoryDialog by remember { mutableStateOf(false) }
+    var inventoryInitialChaos by remember { mutableStateOf(false) }
+    var activeNpc by remember { mutableStateOf<LorenciaNpcDef?>(null) }
+    var isLandscapeLocked by remember { mutableStateOf(false) }
+
+    val nearbyNpc = remember(hero.mapId, hero.x, hero.y) {
+        if (hero.mapId != MapId.LORENCIA) null
+        else MuCatalog.LORENCIA_NPCS.minByOrNull {
+            hypot((it.wx - hero.x).toDouble(), (it.wy - hero.y).toDouble())
+        }?.takeIf {
+            hypot((it.wx - hero.x).toDouble(), (it.wy - hero.y).toDouble()) <= 95.0
+        }
+    }
+
+    BackHandler {
+        when {
+            tradeSession != null -> viewModel.cancelTrade()
+            activeNpc != null -> activeNpc = null
+            showInventoryDialog -> showInventoryDialog = false
+            showCharacterDialog -> showCharacterDialog = false
+            else -> viewModel.exitToTitle()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        GameWorldCanvas(
+            hero = hero,
+            heroFacingAngle = heroFacingAngle,
+            monsters = monsters,
+            drops = drops,
+            floatingTexts = floatingTexts,
+            vfxList = vfxList,
+            lanPlayers = lanPlayers,
+            lanBosses = lanBosses,
+            onTapNpc = { npc ->
+                if (npc.id == "chaos") {
+                    inventoryInitialChaos = true
+                    showInventoryDialog = true
+                } else {
+                    activeNpc = npc
+                }
+            },
+            onTapWorld = { wx, wy -> viewModel.handleTapWorld(wx, wy) }
+        )
+
+        GameHudOverlay(
+            hero = hero,
+            autoHunt = autoHunt,
+            muted = muted,
+            isLandscapeLocked = isLandscapeLocked,
+            activeModsCount = mods.count { it.enabled },
+            skillCooldowns = skillCooldowns,
+            lanConnectedRoom = connectedRoom,
+            lanPlayersCount = lanPlayers.size,
+            activeEvent = activeEvent,
+            incomingTrade = incomingTrade,
+            chatMessages = chatMessages,
+            nearbyNpc = nearbyNpc,
+            onOpenCharacter = { showCharacterDialog = true },
+            onChangeMap = { viewModel.changeMap(it) },
+            onOpenInventory = {
+                inventoryInitialChaos = false
+                showInventoryDialog = true
+            },
+            onOpenMods = onOpenMods,
+            onOpenLan = onOpenLan,
+            onToggleLandscape = {
+                val next = !isLandscapeLocked
+                isLandscapeLocked = next
+                activity?.requestedOrientation = if (next) {
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            },
+            onToggleMute = { viewModel.toggleMute() },
+            onExitToTitle = { viewModel.exitToTitle() },
+            onToggleAutoHunt = { viewModel.toggleAutoHunt() },
+            onJoystickMove = { jx, jy ->
+                viewModel.joystickX = jx
+                viewModel.joystickY = jy
+            },
+            onUsePotion = { viewModel.usePotion(it) },
+            onCastSkill = { viewModel.executeCombat(it) },
+            onTalkNpc = { npc ->
+                if (npc.id == "chaos") {
+                    inventoryInitialChaos = true
+                    showInventoryDialog = true
+                } else {
+                    activeNpc = npc
+                }
+            },
+            onAcceptTrade = { viewModel.acceptIncomingTrade() },
+            onDeclineTrade = { viewModel.declineIncomingTrade() },
+            onSendChat = { msg -> viewModel.lanManager.sendChat(msg) }
+        )
+    }
+
+    if (showCharacterDialog) {
+        CharacterDialog(
+            hero = hero,
+            resetLevel = activeModRates.resetLevel,
+            onAddStat = { kind, amt -> viewModel.addStat(kind, amt) },
+            onMasterReset = { viewModel.resetHero() },
+            onDismiss = { showCharacterDialog = false }
+        )
+    }
+
+    if (showInventoryDialog) {
+        InventoryChaosDialog(
+            hero = hero,
+            chaosBonus = activeModRates.chaosBonus,
+            initialTabChaos = inventoryInitialChaos,
+            onEquipItem = { viewModel.equipItem(it) },
+            onUnequipSlot = { viewModel.unequipSlot(it) },
+            onUpgradeWithJewel = { id, jewel -> viewModel.upgradeWithJewel(id, jewel) },
+            onChaosUpgrade = { id -> viewModel.chaosUpgrade(id) },
+            onCraftWings = { viewModel.craftWings() },
+            onSellItem = { id -> viewModel.sellItem(id) },
+            onDismiss = { showInventoryDialog = false }
+        )
+    }
+
+    activeNpc?.let { npc ->
+        NpcShopDialog(
+            npc = npc,
+            hero = hero,
+            onBuyItem = { tpl, cost -> viewModel.buyShopItem(tpl, cost) },
+            onOpenChaosMachine = {
+                inventoryInitialChaos = true
+                showInventoryDialog = true
+            },
+            onDismiss = { activeNpc = null }
+        )
+    }
+
+    tradeSession?.let { session ->
+        TradeDialog(
+            hero = hero,
+            session = session,
+            onUpdateOffer = { items, zen -> viewModel.updateTradeOffer(items, zen) },
+            onConfirmTrade = { viewModel.confirmTrade() },
+            onCancelTrade = { viewModel.cancelTrade() }
+        )
+    }
+}

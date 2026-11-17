@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mu Offline Mobile</string>
+    <string name="portal_title">Portal de Lorencia</string>
+    <string name="portal_subtitle">Cuentas guardadas localmente en tu teléfono para jugar 100% Offline o en Sala Wi-Fi LAN.</string>
+    <string name="action_login">Ingresar</string>
+    <string name="action_register">Registrarse</string>
+    <string name="action_enter_game">Entrar al Juego</string>
+    <string name="action_create_account">Crear Cuenta Offline</string>
+    <string name="title_choose_hero">Elige tu Héroe de Lorencia</string>
+    <string name="action_enter_world">Entrar al Mundo</string>
+    <string name="action_start_adventure">Comenzar Aventura Offline</string>
+    <string name="offline_mode_badge">Modo Offline Activo</string>
+    <string name="mu_helper">MU Helper</string>
+    <string name="mu_helper_on">MU Helper ON</string>
+    <string name="cd_crest">Cresta Mu Offline</string>
+    <string name="cd_attack">Atacar</string>
+    <string name="cd_close">Cerrar</string>
+    <string name="cd_mute">Silenciar o activar sonido</string>
+    <string name="cd_landscape">Alternar pantalla horizontal</string>
+    <string name="cd_exit_title">Salir al menú</string>
+</resources>

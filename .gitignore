@@ -1,5 +1,11 @@
 node_modules/
 build/
+.gradle/
+.kotlin/
+app/build/
+.build-outputs/
+local.properties
+debug.keystore
 dist/
 coverage/
 .DS_Store
